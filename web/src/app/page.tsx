@@ -132,7 +132,7 @@ export default async function Home() {
             Get Started
           </a>
           <a
-            href="https://abscan.org/address/0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5"
+            href="https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C"
             target="_blank"
             rel="noopener noreferrer"
             className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
@@ -322,7 +322,7 @@ export default async function Home() {
               GitHub
             </a>
             <a
-              href="https://abscan.org/address/0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5"
+              href="https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C"
               target="_blank"
               rel="noopener noreferrer"
               className="no-underline hover:underline"

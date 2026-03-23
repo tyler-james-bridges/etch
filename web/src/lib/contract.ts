@@ -2,7 +2,7 @@ import { createPublicClient, http, type Abi } from "viem";
 import { abstractMainnet } from "./chain";
 
 export const ETCH_ADDRESS =
-  "0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5" as const;
+  "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C" as const;
 
 export const ETCH_ABI = [
   {
