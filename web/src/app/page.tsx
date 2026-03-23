@@ -1,19 +1,81 @@
-import { publicClient, ETCH_ADDRESS, ETCH_ABI, TOKEN_TYPE_LABELS } from "@/lib/contract";
+import { publicClient, ETCH_ADDRESS, ETCH_ABI } from "@/lib/contract";
+import { CopyButton } from "@/components/CopyButton";
 import Link from "next/link";
 
 export const revalidate = 30;
 
-type EtchedLog = {
-  args: {
-    tokenId: bigint;
-    to: `0x${string}`;
-    uri: string;
-    tokenType: number;
-    soulbound: boolean;
-  };
-  blockNumber: bigint;
-  transactionHash: `0x${string}`;
-};
+const MCP_CONFIG = JSON.stringify(
+  {
+    mcpServers: {
+      etch: {
+        command: "npx",
+        args: ["-y", "etch-mcp"],
+      },
+    },
+  },
+  null,
+  2
+);
+
+const TOKEN_TYPES = [
+  {
+    name: "Identity",
+    id: 0,
+    description: "Onchain identity anchors. Who you are, provably.",
+  },
+  {
+    name: "Attestation",
+    id: 1,
+    description: "Third-party claims. Verified facts about an address.",
+  },
+  {
+    name: "Credential",
+    id: 2,
+    description: "Earned qualifications. Proof of skill or completion.",
+  },
+  {
+    name: "Receipt",
+    id: 3,
+    description: "Transaction records. Immutable proof something happened.",
+  },
+  {
+    name: "Pass",
+    id: 4,
+    description: "Access tokens. Gated entry to anything onchain.",
+  },
+  {
+    name: "Custom",
+    id: 5,
+    description: "Your type. Whatever does not fit the others.",
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: "What is ETCH?",
+    a: "An ERC-721 contract on Abstract that lets AI agents mint typed, optionally soulbound tokens. Think of it as a protocol-level primitive for onchain records.",
+  },
+  {
+    q: "What does soulbound mean?",
+    a: "A soulbound token cannot be transferred after minting. It is permanently bound to the receiving address. Useful for credentials, identity, and attestations.",
+  },
+  {
+    q: "How do I use it?",
+    a: "Add the MCP server to your AI agent or coding assistant. The agent gets tools to mint, query, and manage ETCH tokens directly from conversation.",
+  },
+  {
+    q: "What is MCP?",
+    a: "Model Context Protocol. An open standard that lets AI models call external tools. ETCH exposes its contract functions as MCP tools so any compatible agent can use them.",
+  },
+  {
+    q: "Does it cost anything?",
+    a: "Minting requires a small amount of ETH on Abstract for gas. There are no protocol fees.",
+  },
+  {
+    q: "Why Abstract?",
+    a: "Sub-cent gas, native account abstraction, and a chain built for consumer crypto. Agents can mint hundreds of tokens without burning through a wallet.",
+  },
+];
 
 async function getStats() {
   const totalSupply = await publicClient.readContract({
@@ -24,102 +86,255 @@ async function getStats() {
   return { totalSupply: Number(totalSupply) };
 }
 
-async function getRecentEtches(): Promise<EtchedLog[]> {
-  try {
-    const blockNumber = await publicClient.getBlockNumber();
-    const fromBlock = blockNumber > 50000n ? blockNumber - 50000n : 0n;
-
-    const logs = await publicClient.getLogs({
-      address: ETCH_ADDRESS,
-      event: {
-        type: "event",
-        name: "Etched",
-        inputs: [
-          { name: "tokenId", type: "uint256", indexed: true },
-          { name: "to", type: "address", indexed: true },
-          { name: "uri", type: "string", indexed: false },
-          { name: "tokenType", type: "uint8", indexed: false },
-          { name: "soulbound", type: "bool", indexed: false },
-        ],
-      },
-      fromBlock,
-      toBlock: "latest",
-    });
-
-    return (logs as unknown as EtchedLog[]).slice(-10).reverse();
-  } catch {
-    return [];
-  }
-}
-
-function truncateAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
 export default async function Home() {
-  const [stats, recentEtches] = await Promise.all([
-    getStats(),
-    getRecentEtches(),
-  ]);
+  const stats = await getStats();
 
   return (
-    <div className="space-y-12">
-      {/* Hero */}
-      <section className="text-center py-16">
-        <h1 className="text-7xl md:text-9xl font-bold tracking-tighter">
+    <div className="min-h-screen">
+      {/* ---- NAV ---- */}
+      <nav className="sticky top-0 z-50 bg-white border-b-2 border-black px-4 py-3 flex items-center justify-between">
+        <span className="text-xl font-bold tracking-tight">ETCH</span>
+        <div className="flex gap-4 text-sm">
+          <a href="#setup" className="no-underline hover:underline">
+            Setup
+          </a>
+          <a href="#types" className="no-underline hover:underline">
+            Types
+          </a>
+          <a href="#faq" className="no-underline hover:underline">
+            FAQ
+          </a>
+          <a
+            href="https://github.com/ack-protocol/etch"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="no-underline hover:underline"
+          >
+            GitHub
+          </a>
+        </div>
+      </nav>
+
+      {/* ---- HERO ---- */}
+      <section className="border-b-2 border-black px-4 py-20 md:py-32 max-w-4xl mx-auto">
+        <h1 className="text-6xl md:text-8xl font-bold tracking-tighter leading-none">
           ETCH
         </h1>
-        <p className="mt-4 text-lg">Permanent onchain records on Abstract</p>
-      </section>
-
-      {/* Stats */}
-      <section className="border-2 border-black p-6">
-        <div className="text-sm uppercase tracking-wider mb-2">
-          Total Supply
+        <p className="mt-4 text-lg md:text-xl max-w-xl">
+          Permanent, typed, onchain records on Abstract. Built for AI agents.
+          Controlled via MCP.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <a
+            href="#setup"
+            className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="https://abscan.org/address/0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
+          >
+            View Contract
+          </a>
         </div>
-        <div className="text-4xl font-bold">{stats.totalSupply}</div>
       </section>
 
-      {/* Recent Etches */}
-      <section>
-        <h2 className="text-xl font-bold mb-4 uppercase tracking-wider">
-          Recent Etches
-        </h2>
-        {recentEtches.length === 0 ? (
-          <div className="border-2 border-black p-6 text-center text-sm">
-            No etches found yet.
+      {/* ---- TERMINAL DEMO ---- */}
+      <section className="border-b-2 border-black px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-xs uppercase tracking-widest mb-4">
+            How it works
+          </h2>
+          <div className="border-2 border-black bg-black text-green-400 p-6 overflow-x-auto">
+            <pre className="text-sm leading-relaxed whitespace-pre">
+              <span className="text-gray-500">{"// You talk to your agent"}</span>
+              {"\n"}
+              <span className="text-white">{">"}</span>
+              {" Mint a soulbound credential for 0xAb5...3fC\n"}
+              <span className="text-white">{">"}</span>
+              {" type: Credential, uri: ipfs://Qm...abc\n\n"}
+              <span className="text-gray-500">{"// Agent calls ETCH via MCP"}</span>
+              {"\n"}
+              <span className="text-blue-400">etch.mint</span>
+              {"({\n"}
+              {"  to: \"0xAb5...3fC\",\n"}
+              {"  tokenType: 2,\n"}
+              {"  uri: \"ipfs://Qm...abc\",\n"}
+              {"  soulbound: true\n"}
+              {"})\n\n"}
+              <span className="text-gray-500">{"// Token #42 minted on Abstract"}</span>
+              {"\n"}
+              <span className="text-green-300">{"OK"}</span>
+              {" tokenId: 42 | type: Credential | soulbound: true\n"}
+              <span className="text-green-300">{"OK"}</span>
+              {" tx: 0x8f3...a1d"}
+            </pre>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {recentEtches.map((log) => (
-              <Link
-                key={log.args.tokenId.toString()}
-                href={`/etch/${log.args.tokenId.toString()}`}
-                className="block border-2 border-black p-4 no-underline hover:bg-black hover:text-white transition-colors"
+        </div>
+      </section>
+
+      {/* ---- SETUP ---- */}
+      <section id="setup" className="border-b-2 border-black px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+            Setup
+          </h2>
+          <p className="text-sm mb-6 max-w-xl">
+            Add the ETCH MCP server to your agent config. Works with Claude
+            Desktop, Cursor, Windsurf, and any MCP-compatible client.
+          </p>
+          <div className="border-2 border-black">
+            <div className="flex items-center justify-between border-b-2 border-black px-4 py-2 bg-gray-100">
+              <span className="text-xs uppercase tracking-wider font-bold">
+                mcp.json
+              </span>
+              <CopyButton text={MCP_CONFIG} />
+            </div>
+            <pre className="p-4 text-sm overflow-x-auto">{MCP_CONFIG}</pre>
+          </div>
+          <p className="text-xs mt-3 text-gray-600">
+            Requires Node.js 18+. The server runs locally and connects to
+            Abstract mainnet.
+          </p>
+        </div>
+      </section>
+
+      {/* ---- TOKEN TYPES ---- */}
+      <section id="types" className="border-b-2 border-black px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
+            Token Types
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0">
+            {TOKEN_TYPES.map((t) => (
+              <div
+                key={t.id}
+                className="border-2 border-black p-5 -mt-[2px] -ml-[2px]"
               >
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold">
-                      #{log.args.tokenId.toString()}
-                    </span>
-                    <span className="border border-black px-2 py-0.5 text-xs uppercase">
-                      {TOKEN_TYPE_LABELS[log.args.tokenType] ?? "Unknown"}
-                    </span>
-                    {log.args.soulbound && (
-                      <span className="border border-black px-2 py-0.5 text-xs uppercase bg-black text-white">
-                        Soulbound
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs">
-                    {truncateAddress(log.args.to)}
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-lg font-bold">{t.name}</span>
+                  <span className="text-xs text-gray-500">
+                    type {t.id}
                   </span>
                 </div>
-              </Link>
+                <p className="text-sm leading-snug">{t.description}</p>
+              </div>
             ))}
           </div>
-        )}
+        </div>
       </section>
+
+      {/* ---- WHY ABSTRACT ---- */}
+      <section className="border-b-2 border-black px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
+            Why Abstract
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+            <div className="border-2 border-black p-5 -mt-[2px] -ml-[2px]">
+              <h3 className="font-bold mb-1">Sub-cent gas</h3>
+              <p className="text-sm">
+                Minting costs fractions of a penny. Agents can operate at scale
+                without draining wallets.
+              </p>
+            </div>
+            <div className="border-2 border-black p-5 -mt-[2px] -ml-[2px]">
+              <h3 className="font-bold mb-1">Native AA</h3>
+              <p className="text-sm">
+                Account abstraction is built into the chain. Smart wallets,
+                paymasters, and batch transactions out of the box.
+              </p>
+            </div>
+            <div className="border-2 border-black p-5 -mt-[2px] -ml-[2px]">
+              <h3 className="font-bold mb-1">Consumer chain</h3>
+              <p className="text-sm">
+                Abstract is designed for consumer apps. Fast finality, clean
+                explorer, growing ecosystem.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- LIVE STATS ---- */}
+      <section className="border-b-2 border-black px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-xs uppercase tracking-widest mb-4">
+            Live from Abstract
+          </h2>
+          <div className="border-2 border-black p-6 inline-block">
+            <div className="text-xs uppercase tracking-wider mb-1">
+              Total Supply
+            </div>
+            <div className="text-5xl md:text-6xl font-bold">
+              {stats.totalSupply}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              tokens etched
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- FAQ ---- */}
+      <section id="faq" className="border-b-2 border-black px-4 py-12 md:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
+            FAQ
+          </h2>
+          <div className="divide-y-2 divide-black border-2 border-black">
+            {FAQ_ITEMS.map((item, i) => (
+              <div key={i} className="p-5">
+                <h3 className="font-bold mb-2">{item.q}</h3>
+                <p className="text-sm leading-relaxed">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---- FOOTER ---- */}
+      <footer className="px-4 py-8">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <span className="font-bold text-lg">ETCH</span>
+            <span className="text-sm ml-2 text-gray-500">
+              by{" "}
+              <a
+                href="https://ack-onchain.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ACK Protocol
+              </a>
+            </span>
+          </div>
+          <div className="flex gap-4 text-sm">
+            <a
+              href="https://github.com/ack-protocol/etch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="no-underline hover:underline"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://abscan.org/address/0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="no-underline hover:underline"
+            >
+              Contract
+            </a>
+            <Link href="/etch/1" className="no-underline hover:underline">
+              Explorer
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
