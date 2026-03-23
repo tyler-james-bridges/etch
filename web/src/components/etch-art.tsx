@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { renderEtchArt } from '@/lib/art-engine';
+import { useMemo } from 'react';
+import { generateEtchSvg } from '@/lib/art-svg';
 
 interface EtchArtProps {
   tokenId: number;
@@ -10,30 +10,13 @@ interface EtchArtProps {
 }
 
 export function EtchArt({ tokenId, tokenType, size = 400 }: EtchArtProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Generate deterministic art from tokenId
-    renderEtchArt(ctx, tokenId, tokenType, size);
-  }, [tokenId, tokenType, size]);
+  const svg = useMemo(() => generateEtchSvg(tokenId, tokenType), [tokenId, tokenType]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={size}
-      height={size}
+    <div
       className="border-2 border-black"
-      style={{
-        imageRendering: 'pixelated',
-        maxWidth: '100%',
-        height: 'auto',
-      }}
+      style={{ width: size, maxWidth: '100%' }}
+      dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
 }
