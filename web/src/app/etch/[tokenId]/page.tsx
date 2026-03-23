@@ -7,8 +7,78 @@ import {
 import { EtchArt } from "@/components/etch-art";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 export const revalidate = 30;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tokenId: string }>;
+}): Promise<Metadata> {
+  const { tokenId: tokenIdStr } = await params;
+  const tokenId = BigInt(tokenIdStr);
+
+  try {
+    const [uri, tokenType, soulbound] = await Promise.all([
+      publicClient.readContract({
+        address: ETCH_ADDRESS,
+        abi: ETCH_ABI,
+        functionName: "tokenURI",
+        args: [tokenId],
+      }),
+      publicClient.readContract({
+        address: ETCH_ADDRESS,
+        abi: ETCH_ABI,
+        functionName: "tokenType",
+        args: [tokenId],
+      }),
+      publicClient.readContract({
+        address: ETCH_ADDRESS,
+        abi: ETCH_ABI,
+        functionName: "isSoulbound",
+        args: [tokenId],
+      }),
+    ]);
+
+    const type = Number(tokenType);
+    const typeName = TOKEN_TYPE_LABELS[type] || "Unknown";
+    const { description } = parseTokenUri(uri as string);
+    const title = `ETCH #${tokenIdStr} - ${typeName}${soulbound ? " (Soulbound)" : ""}`;
+    const desc =
+      description || `Onchain ${typeName} record on Abstract.`;
+    const artUrl = `https://etch.ack-onchain.dev/api/art/${tokenIdStr}`;
+
+    return {
+      title,
+      description: desc,
+      openGraph: {
+        title,
+        description: desc,
+        images: [
+          {
+            url: artUrl,
+            width: 400,
+            height: 400,
+            type: "image/svg+xml",
+            alt: `ETCH #${tokenIdStr} generative art`,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description: desc,
+        images: [artUrl],
+      },
+    };
+  } catch {
+    return {
+      title: `ETCH #${tokenIdStr}`,
+      description: "Permanent onchain record on Abstract.",
+    };
+  }
+}
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
