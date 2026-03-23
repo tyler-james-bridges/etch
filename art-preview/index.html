@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ETCH Art Preview</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
+  <style>
+    body { background: #000; margin: 0; font-family: monospace; color: #fff; }
+    .grid { display: flex; flex-wrap: wrap; gap: 20px; padding: 20px; justify-content: center; }
+    .card { text-align: center; }
+    .card p { margin: 8px 0 0; font-size: 14px; letter-spacing: 2px; }
+    .card .sub { font-size: 11px; opacity: 0.5; }
+    h1 { text-align: center; padding: 30px 0 10px; font-size: 24px; letter-spacing: 4px; }
+  </style>
+</head>
+<body>
+  <h1>ETCH GENERATIVE ART PREVIEW</h1>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  // Seeded random from hash string
+  function hashToSeed(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h);
+  }
+
+  class SeededRandom {
+    constructor(seed) { this.seed = seed; }
+    next() {
+      this.seed = (this.seed * 16807 + 0) % 2147483647;
+      return this.seed / 2147483647;
+    }
+    range(min, max) { return min + this.next() * (max - min); }
+    int(min, max) { return Math.floor(this.range(min, max)); }
+  }
+
+  const TYPES = [
+    { name: "IDENTITY", id: 0, hash: "0xabc123def456789identity001" },
+    { name: "ATTESTATION", id: 1, hash: "0x987fed321cba654attestation01" },
+    { name: "CREDENTIAL", id: 2, hash: "0x112233445566credential0001" },
+    { name: "RECEIPT", id: 3, hash: "0xdeadbeef0000receipt000001" },
+    { name: "PASS", id: 4, hash: "0xcafe0123456789pass0000001" },
+  ];
+
+  // Color palettes per type
+  const PALETTES = {
+    0: { bg: [8, 12, 24], accent: [96, 165, 250], secondary: [59, 130, 246] },     // Identity: deep blue
+    1: { bg: [8, 18, 12], accent: [34, 197, 94], secondary: [22, 163, 74] },        // Attestation: green
+    2: { bg: [14, 10, 26], accent: [167, 139, 250], secondary: [139, 92, 246] },    // Credential: purple
+    3: { bg: [18, 14, 6], accent: [251, 146, 60], secondary: [234, 88, 12] },       // Receipt: orange
+    4: { bg: [8, 18, 22], accent: [34, 211, 238], secondary: [6, 182, 212] },       // Pass: cyan
+  };
+
+  const SIZE = 400;
+
+  // Generate all 5 types, 3 variations each
+  const grid = document.getElementById('grid');
+
+  function createCanvas(parent) {
+    const c = document.createElement('canvas');
+    c.width = SIZE;
+    c.height = SIZE;
+    parent.appendChild(c);
+    return c;
+  }
+
+  // ── IDENTITY: Crystalline geometric structures ──
+  function drawIdentity(ctx, rng, pal) {
+    // Dark bg
+    ctx.fillStyle = `rgb(${pal.bg.join(',')})`;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Concentric geometric rings
+    const cx = SIZE / 2;
+    const cy = SIZE / 2;
+    const rings = rng.int(5, 9);
+
+    for (let r = 0; r < rings; r++) {
+      const radius = 40 + r * (140 / rings);
+      const sides = rng.int(3, 8);
+      const rotation = rng.range(0, Math.PI * 2);
+      const alpha = 0.15 + (r / rings) * 0.4;
+
+      ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${alpha})`;
+      ctx.lineWidth = 1 + rng.range(0, 1.5);
+      ctx.beginPath();
+      for (let i = 0; i <= sides; i++) {
+        const angle = rotation + (i / sides) * Math.PI * 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      // Connection lines to center
+      if (rng.next() > 0.5) {
+        for (let i = 0; i < sides; i++) {
+          const angle = rotation + (i / sides) * Math.PI * 2;
+          const x = cx + Math.cos(angle) * radius;
+          const y = cy + Math.sin(angle) * radius;
+          ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${alpha * 0.3})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Center node
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+    gradient.addColorStop(0, `rgba(${pal.accent.join(',')}, 0.8)`);
+    gradient.addColorStop(1, `rgba(${pal.accent.join(',')}, 0)`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Scatter dots
+    for (let i = 0; i < 60; i++) {
+      const angle = rng.range(0, Math.PI * 2);
+      const dist = rng.range(20, 180);
+      const x = cx + Math.cos(angle) * dist;
+      const y = cy + Math.sin(angle) * dist;
+      const s = rng.range(1, 3);
+      ctx.fillStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.05, 0.3)})`;
+      ctx.fillRect(x - s/2, y - s/2, s, s);
+    }
+  }
+
+  // ── ATTESTATION: Flowing organic forms (flow field) ──
+  function drawAttestation(ctx, rng, pal) {
+    ctx.fillStyle = `rgb(${pal.bg.join(',')})`;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    const scale = rng.range(0.003, 0.008);
+    const offset = rng.range(0, 1000);
+    const lines = rng.int(80, 150);
+
+    for (let i = 0; i < lines; i++) {
+      let x = rng.range(0, SIZE);
+      let y = rng.range(0, SIZE);
+      const alpha = rng.range(0.08, 0.35);
+      ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${alpha})`;
+      ctx.lineWidth = rng.range(0.5, 2);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+
+      for (let step = 0; step < 60; step++) {
+        // Perlin-like noise using sin/cos combination
+        const angle = Math.sin(x * scale + offset) * Math.cos(y * scale + offset) * Math.PI * 4;
+        x += Math.cos(angle) * 3;
+        y += Math.sin(angle) * 3;
+        ctx.lineTo(x, y);
+        if (x < 0 || x > SIZE || y < 0 || y > SIZE) break;
+      }
+      ctx.stroke();
+    }
+
+    // Organic nodes at flow intersections
+    for (let i = 0; i < 12; i++) {
+      const x = rng.range(40, SIZE - 40);
+      const y = rng.range(40, SIZE - 40);
+      const r = rng.range(3, 8);
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+      gradient.addColorStop(0, `rgba(${pal.accent.join(',')}, 0.4)`);
+      gradient.addColorStop(1, `rgba(${pal.accent.join(',')}, 0)`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── CREDENTIAL: Layered complex patterns (grid/matrix) ──
+  function drawCredential(ctx, rng, pal) {
+    ctx.fillStyle = `rgb(${pal.bg.join(',')})`;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    const cellSize = rng.int(16, 28);
+    const cols = Math.ceil(SIZE / cellSize);
+    const rows = Math.ceil(SIZE / cellSize);
+
+    // Base grid
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col * cellSize;
+        const y = row * cellSize;
+        const val = rng.next();
+
+        if (val > 0.85) {
+          // Filled square
+          ctx.fillStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.1, 0.5)})`;
+          ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        } else if (val > 0.7) {
+          // Outlined square
+          ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.1, 0.3)})`;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+        } else if (val > 0.6) {
+          // Dot
+          ctx.fillStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.1, 0.25)})`;
+          ctx.beginPath();
+          ctx.arc(x + cellSize/2, y + cellSize/2, rng.range(1, 3), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Overlay: diagonal lines creating depth
+    const diagLines = rng.int(8, 16);
+    for (let i = 0; i < diagLines; i++) {
+      const startX = rng.range(-100, SIZE);
+      const startY = rng.range(-100, SIZE);
+      ctx.strokeStyle = `rgba(${pal.secondary.join(',')}, ${rng.range(0.05, 0.15)})`;
+      ctx.lineWidth = rng.range(0.5, 2);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(startX + 500, startY + 500);
+      ctx.stroke();
+    }
+
+    // Focus point with radial glow
+    const fx = rng.range(SIZE * 0.3, SIZE * 0.7);
+    const fy = rng.range(SIZE * 0.3, SIZE * 0.7);
+    const gradient = ctx.createRadialGradient(fx, fy, 0, fx, fy, 100);
+    gradient.addColorStop(0, `rgba(${pal.accent.join(',')}, 0.2)`);
+    gradient.addColorStop(1, `rgba(${pal.accent.join(',')}, 0)`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 100, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── RECEIPT: Minimal precise geometry ──
+  function drawReceipt(ctx, rng, pal) {
+    ctx.fillStyle = `rgb(${pal.bg.join(',')})`;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Horizontal scan lines
+    const lineCount = rng.int(30, 60);
+    for (let i = 0; i < lineCount; i++) {
+      const y = (i / lineCount) * SIZE;
+      const width = rng.range(SIZE * 0.2, SIZE * 0.9);
+      const x = rng.range(0, SIZE - width);
+      ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.05, 0.2)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + width, y);
+      ctx.stroke();
+    }
+
+    // Vertical accent bars
+    const bars = rng.int(3, 7);
+    for (let i = 0; i < bars; i++) {
+      const x = rng.range(20, SIZE - 20);
+      const height = rng.range(SIZE * 0.3, SIZE * 0.8);
+      const y = rng.range(0, SIZE - height);
+      ctx.fillStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.03, 0.1)})`;
+      ctx.fillRect(x, y, rng.range(1, 4), height);
+    }
+
+    // Precise rectangles
+    const rects = rng.int(4, 10);
+    for (let i = 0; i < rects; i++) {
+      const x = rng.range(40, SIZE - 120);
+      const y = rng.range(40, SIZE - 120);
+      const w = rng.range(30, 100);
+      const h = rng.range(20, 60);
+      ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.1, 0.35)})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, w, h);
+    }
+
+    // Data points
+    for (let i = 0; i < 30; i++) {
+      const x = rng.range(20, SIZE - 20);
+      const y = rng.range(20, SIZE - 20);
+      ctx.fillStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.2, 0.6)})`;
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
+
+  // ── PASS: Dynamic energetic compositions ──
+  function drawPass(ctx, rng, pal) {
+    ctx.fillStyle = `rgb(${pal.bg.join(',')})`;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Radiating lines from multiple points
+    const sources = rng.int(2, 5);
+    for (let s = 0; s < sources; s++) {
+      const sx = rng.range(SIZE * 0.2, SIZE * 0.8);
+      const sy = rng.range(SIZE * 0.2, SIZE * 0.8);
+      const rays = rng.int(20, 50);
+
+      for (let i = 0; i < rays; i++) {
+        const angle = rng.range(0, Math.PI * 2);
+        const length = rng.range(40, 200);
+        const ex = sx + Math.cos(angle) * length;
+        const ey = sy + Math.sin(angle) * length;
+        ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.05, 0.25)})`;
+        ctx.lineWidth = rng.range(0.5, 2);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+      }
+
+      // Source glow
+      const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, 40);
+      gradient.addColorStop(0, `rgba(${pal.accent.join(',')}, 0.5)`);
+      gradient.addColorStop(1, `rgba(${pal.accent.join(',')}, 0)`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 40, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Arcs connecting sources
+    for (let i = 0; i < rng.int(5, 15); i++) {
+      const x = rng.range(50, SIZE - 50);
+      const y = rng.range(50, SIZE - 50);
+      const r = rng.range(30, 120);
+      const startAngle = rng.range(0, Math.PI * 2);
+      const endAngle = startAngle + rng.range(Math.PI * 0.3, Math.PI * 1.5);
+      ctx.strokeStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.08, 0.25)})`;
+      ctx.lineWidth = rng.range(0.5, 2);
+      ctx.beginPath();
+      ctx.arc(x, y, r, startAngle, endAngle);
+      ctx.stroke();
+    }
+
+    // Energy particles
+    for (let i = 0; i < 40; i++) {
+      const x = rng.range(10, SIZE - 10);
+      const y = rng.range(10, SIZE - 10);
+      const s = rng.range(1, 4);
+      ctx.fillStyle = `rgba(${pal.accent.join(',')}, ${rng.range(0.15, 0.5)})`;
+      ctx.beginPath();
+      ctx.arc(x, y, s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const DRAW_FNS = [drawIdentity, drawAttestation, drawCredential, drawReceipt, drawPass];
+
+  // Render 3 variations of each type
+  TYPES.forEach((type, typeIdx) => {
+    for (let v = 0; v < 3; v++) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const canvas = createCanvas(card);
+      const ctx = canvas.getContext('2d');
+      const seed = hashToSeed(type.hash + v.toString());
+      const rng = new SeededRandom(seed);
+      const pal = PALETTES[type.id];
+      DRAW_FNS[typeIdx](ctx, rng, pal);
+
+      const label = document.createElement('p');
+      label.textContent = type.name;
+      card.appendChild(label);
+
+      const sub = document.createElement('p');
+      sub.className = 'sub';
+      sub.textContent = `Variation ${v + 1}`;
+      card.appendChild(sub);
+
+      grid.appendChild(card);
+    }
+  });
+  </script>
+</body>
+</html>

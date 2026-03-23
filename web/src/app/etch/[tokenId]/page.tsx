@@ -4,6 +4,7 @@ import {
   ETCH_ABI,
   TOKEN_TYPE_LABELS,
 } from "@/lib/contract";
+import { EtchArt } from "@/components/etch-art";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -70,27 +71,35 @@ export default async function TokenPage({
 
       <h1 className="text-4xl font-bold">ETCH #{tokenIdStr}</h1>
 
-      <div className="border-2 border-black divide-y-2 divide-black">
-        <div className="p-4 flex justify-between">
-          <span className="font-bold uppercase text-sm">Type</span>
-          <span>{TOKEN_TYPE_LABELS[data.tokenType] ?? "Unknown"}</span>
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-shrink-0 self-center lg:self-start">
+          <EtchArt tokenId={Number(tokenIdStr)} tokenType={data.tokenType} />
         </div>
-        <div className="p-4 flex justify-between">
-          <span className="font-bold uppercase text-sm">Soulbound</span>
-          <span>{data.soulbound ? "Yes" : "No"}</span>
-        </div>
-        <div className="p-4 flex justify-between items-center">
-          <span className="font-bold uppercase text-sm">Owner</span>
-          <Link href={`/address/${data.owner}`}>
-            <span className="md:hidden">{truncateAddress(data.owner)}</span>
-            <span className="hidden md:inline">{data.owner}</span>
-          </Link>
-        </div>
-        <div className="p-4 flex justify-between items-center flex-wrap gap-2">
-          <span className="font-bold uppercase text-sm">Token URI</span>
-          <span className="text-xs break-all max-w-[70%] text-right">
-            {data.uri || "None"}
-          </span>
+        
+        <div className="flex-grow">
+          <div className="border-2 border-black divide-y-2 divide-black">
+            <div className="p-4 flex justify-between">
+              <span className="font-bold uppercase text-sm">Type</span>
+              <span>{TOKEN_TYPE_LABELS[data.tokenType] ?? "Unknown"}</span>
+            </div>
+            <div className="p-4 flex justify-between">
+              <span className="font-bold uppercase text-sm">Soulbound</span>
+              <span>{data.soulbound ? "Yes" : "No"}</span>
+            </div>
+            <div className="p-4 flex justify-between items-center">
+              <span className="font-bold uppercase text-sm">Owner</span>
+              <Link href={`/address/${data.owner}`}>
+                <span className="md:hidden">{truncateAddress(data.owner)}</span>
+                <span className="hidden md:inline">{data.owner}</span>
+              </Link>
+            </div>
+            <div className="p-4 flex justify-between items-center flex-wrap gap-2">
+              <span className="font-bold uppercase text-sm">Token URI</span>
+              <span className="text-xs break-all max-w-[70%] text-right">
+                {data.uri || "None"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
