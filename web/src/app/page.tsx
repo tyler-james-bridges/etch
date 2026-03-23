@@ -95,6 +95,9 @@ export default async function Home() {
       <nav className="sticky top-0 z-50 bg-white border-b-2 border-black px-4 py-3 flex items-center justify-between">
         <span className="text-xl font-bold tracking-tight">ETCH</span>
         <div className="flex gap-4 text-sm">
+          <Link href="/create" className="no-underline hover:underline font-bold">
+            Create
+          </Link>
           <a href="#setup" className="no-underline hover:underline">
             Setup
           </a>

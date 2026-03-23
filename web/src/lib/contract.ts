@@ -65,6 +65,18 @@ export const ETCH_ABI = [
     stateMutability: "view",
   },
   {
+    type: "function",
+    name: "etch",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "uri", type: "string" },
+      { name: "_tokenType", type: "uint8" },
+      { name: "soulbound", type: "bool" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
     type: "event",
     name: "Etched",
     inputs: [
