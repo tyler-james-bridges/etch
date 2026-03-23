@@ -148,14 +148,14 @@ export default function CreatePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8 items-start">
         {/* Art preview */}
-        <div>
+        <div className="w-[240px]">
           <div
-            className="border-2 border-black w-full max-w-[280px]"
+            className="border-2 border-black w-[240px] h-[240px] overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:block"
             dangerouslySetInnerHTML={{ __html: previewSvg }}
           />
-          <p className="text-xs text-gray-400 mt-2 max-w-[280px]">
+          <p className="text-xs text-gray-400 mt-2">
             Preview based on your wallet. Final art is unique to the token ID.
           </p>
         </div>
