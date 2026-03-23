@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {EtchFactory} from "../src/EtchFactory.sol";
@@ -173,5 +173,90 @@ contract EtchFactoryTest is Test {
         assertEq(factory.ownerOf(0), alice);
         assertEq(factory.ownerOf(1), bob);
         assertEq(factory.ownerOf(2), alice);
+    }
+
+    // -- Minter access control tests ------------------------------------------
+
+    function test_unauthorizedMinterReverts() public {
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(EtchFactory.UnauthorizedMinter.selector, alice));
+        factory.etch(alice, "data:,test", 0, false);
+    }
+
+    function test_setMinterAllowsMinting() public {
+        factory.setMinter(alice, true);
+        assertTrue(factory.isMinter(alice));
+
+        vm.prank(alice);
+        uint256 tokenId = factory.etch(bob, "data:,test", 0, false);
+        assertEq(factory.ownerOf(tokenId), bob);
+    }
+
+    function test_removeMinterBlocksMinting() public {
+        factory.setMinter(alice, true);
+        factory.setMinter(alice, false);
+        assertFalse(factory.isMinter(alice));
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(EtchFactory.UnauthorizedMinter.selector, alice));
+        factory.etch(alice, "data:,test", 0, false);
+    }
+
+    function test_onlyOwnerCanSetMinter() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        factory.setMinter(bob, true);
+    }
+
+    // -- Contract URI tests ---------------------------------------------------
+
+    function test_contractURIDefault() public view {
+        assertEq(bytes(factory.contractURI()).length, 0);
+    }
+
+    function test_setContractURI() public {
+        string memory uri = "https://etch.xyz/metadata.json";
+        factory.setContractURI(uri);
+        assertEq(factory.contractURI(), uri);
+    }
+
+    function test_onlyOwnerCanSetContractURI() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        factory.setContractURI("https://evil.com");
+    }
+
+    // -- totalSupply tests (ERC721Enumerable) ---------------------------------
+
+    function test_totalSupplyIncrementsOnMint() public {
+        assertEq(factory.totalSupply(), 0);
+        factory.etch(alice, "data:,a", 0, false);
+        assertEq(factory.totalSupply(), 1);
+        factory.etch(bob, "data:,b", 1, true);
+        assertEq(factory.totalSupply(), 2);
+    }
+
+    function test_tokenByIndex() public {
+        factory.etch(alice, "data:,a", 0, false);
+        factory.etch(bob, "data:,b", 1, true);
+        assertEq(factory.tokenByIndex(0), 0);
+        assertEq(factory.tokenByIndex(1), 1);
+    }
+
+    function test_tokenOfOwnerByIndex() public {
+        factory.etch(alice, "data:,a", 0, false);
+        factory.etch(alice, "data:,b", 1, true);
+        assertEq(factory.tokenOfOwnerByIndex(alice, 0), 0);
+        assertEq(factory.tokenOfOwnerByIndex(alice, 1), 1);
+    }
+
+    // -- isMinter view --------------------------------------------------------
+
+    function test_ownerIsAlwaysMinter() public view {
+        assertTrue(factory.isMinter(address(this)));
+    }
+
+    function test_randomAddressNotMinter() public view {
+        assertFalse(factory.isMinter(alice));
     }
 }

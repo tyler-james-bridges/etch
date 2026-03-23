@@ -14,7 +14,7 @@ pub struct Config {
     pub rpc_url: String,
 
     /// EtchFactory contract address
-    #[arg(long, env = "ETCH_FACTORY_ADDRESS", default_value = "0x0000000000000000000000000000000000000000")]
+    #[arg(long, env = "ETCH_FACTORY_ADDRESS", default_value = "0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5")]
     pub factory_address: String,
 
     /// Private key for signing transactions
