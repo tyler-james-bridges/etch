@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ETCH Art v4 - Optimized SVG (onchain-ready)</title>
+  <style>
+    body { background: #0a0a0a; margin: 0; font-family: monospace; color: #fff; }
+    .grid { display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; justify-content: center; }
+    .card { text-align: center; }
+    .card svg { border: 2px solid #333; }
+    .card p { margin: 8px 0 0; font-size: 13px; letter-spacing: 3px; }
+    .card .sub { font-size: 10px; opacity: 0.4; }
+    .card .size { font-size: 10px; opacity: 0.6; color: #4f4; }
+    h1 { text-align: center; padding: 30px 0 0; font-size: 20px; letter-spacing: 6px; opacity: 0.6; }
+    h2 { text-align: center; font-size: 12px; letter-spacing: 4px; opacity: 0.3; margin: 0 0 20px; }
+  </style>
+</head>
+<body>
+  <h1>ETCH ART ENGINE V4 - OPTIMIZED</h1>
+  <h2>ONCHAIN-READY / feTurbulence NOISE / TARGET &lt;30KB</h2>
+  <div class="grid" id="grid"></div>
+
+  <script>
+  class SimplexNoise {
+    constructor(seed) {
+      this.grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+      this.perm = new Uint8Array(512);
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) p[i] = i;
+      let s = seed;
+      for (let i = 255; i > 0; i--) { s = (s * 16807) % 2147483647; const j = s % (i + 1); [p[i], p[j]] = [p[j], p[i]]; }
+      for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+    }
+    noise2D(x, y) {
+      const F2 = 0.5*(Math.sqrt(3)-1), G2 = (3-Math.sqrt(3))/6;
+      const s = (x+y)*F2, i = Math.floor(x+s), j = Math.floor(y+s), t = (i+j)*G2;
+      const x0 = x-(i-t), y0 = y-(j-t);
+      const i1 = x0>y0?1:0, j1 = x0>y0?0:1;
+      const x1=x0-i1+G2, y1=y0-j1+G2, x2=x0-1+2*G2, y2=y0-1+2*G2;
+      const ii=i&255, jj=j&255, dot=(g,x,y)=>g[0]*x+g[1]*y;
+      let n0=0,n1=0,n2=0;
+      let t0=0.5-x0*x0-y0*y0; if(t0>0){t0*=t0;n0=t0*t0*dot(this.grad3[this.perm[ii+this.perm[jj]]%12],x0,y0);}
+      let t1=0.5-x1*x1-y1*y1; if(t1>0){t1*=t1;n1=t1*t1*dot(this.grad3[this.perm[ii+i1+this.perm[jj+j1]]%12],x1,y1);}
+      let t2=0.5-x2*x2-y2*y2; if(t2>0){t2*=t2;n2=t2*t2*dot(this.grad3[this.perm[ii+1+this.perm[jj+1]]%12],x2,y2);}
+      return 70*(n0+n1+n2);
+    }
+  }
+
+  class Rand {
+    constructor(seed) { this.s = seed; }
+    next() { this.s = (this.s * 16807) % 2147483647; return this.s / 2147483647; }
+    range(a, b) { return a + this.next() * (b - a); }
+    int(a, b) { return Math.floor(this.range(a, b)); }
+    pick(arr) { return arr[this.int(0, arr.length)]; }
+  }
+
+  function hashSeed(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return Math.abs(h) || 1;
+  }
+
+  const SIZE = 400;
+  const PALETTES = {
+    0: { bg: [6,10,20], primary: [96,165,250], secondary: [147,197,253], dim: [30,58,138] },
+    1: { bg: [6,16,10], primary: [34,197,94], secondary: [134,239,172], dim: [20,83,45] },
+    2: { bg: [12,8,24], primary: [167,139,250], secondary: [196,181,253], dim: [76,29,149] },
+    3: { bg: [16,12,4], primary: [251,146,60], secondary: [253,186,116], dim: [124,45,18] },
+    4: { bg: [6,16,20], primary: [34,211,238], secondary: [103,232,249], dim: [14,116,144] },
+  };
+
+  function rgb(c) { return `rgb(${c[0]},${c[1]},${c[2]})`; }
+
+  class SvgBuilder {
+    constructor(size) { this.size = size; this.defs = []; this.elements = []; this.dc = 0; }
+    rect(x, y, w, h, fill, op) { this.elements.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${op!=null?` opacity="${op.toFixed(3)}"`:''}/>`) }
+    strokeRect(x, y, w, h, s, sw, op) { this.elements.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${s}" stroke-width="${sw}"${op!=null?` opacity="${op.toFixed(3)}"`:''}/>`) }
+    circle(cx, cy, r, fill, op) { this.elements.push(`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${fill}"${op!=null?` opacity="${op.toFixed(3)}"`:''}/>`) }
+    line(x1, y1, x2, y2, s, sw, op) { this.elements.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${s}" stroke-width="${sw}"${op!=null?` opacity="${op.toFixed(3)}"`:''}/>`) }
+    path(d, s, sw, op, fill) { this.elements.push(`<path d="${d}" fill="${fill||'none'}" stroke="${s||'none'}" stroke-width="${sw||0}"${op!=null?` opacity="${op.toFixed(3)}"`:''}/>`) }
+    polygon(pts, s, sw, op) { this.path(pts.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ')+' Z', s, sw, op) }
+    quad(x1,y1,cx,cy,x2,y2,s,sw,op) { this.path(`M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,s,sw,op) }
+    radGrad(cx, cy, r, stops) {
+      const id = `g${this.dc++}`;
+      this.defs.push(`<radialGradient id="${id}" cx="${(cx/this.size).toFixed(4)}" cy="${(cy/this.size).toFixed(4)}" r="${(r/this.size).toFixed(4)}" gradientUnits="objectBoundingBox">${stops.map(s=>`<stop offset="${s[0]}" stop-color="${s[1]}" stop-opacity="${s[2]}"/>`).join('')}</radialGradient>`);
+      return `url(#${id})`;
+    }
+    // feTurbulence-based noise texture (replaces thousands of tiny rects)
+    noiseTexture(color, opacity, baseFreq, seed) {
+      const id = `n${this.dc++}`;
+      this.defs.push(
+        `<filter id="${id}" x="0" y="0" width="100%" height="100%">` +
+        `<feTurbulence type="fractalNoise" baseFrequency="${baseFreq}" numOctaves="3" seed="${seed}" result="noise"/>` +
+        `<feColorMatrix type="saturate" values="0" result="gray"/>` +
+        `<feComponentTransfer result="thresh"><feFuncA type="discrete" tableValues="0 0 0 0 0 0 1"/></feComponentTransfer>` +
+        `</filter>`
+      );
+      this.elements.push(`<rect x="0" y="0" width="${this.size}" height="${this.size}" fill="${color}" opacity="${opacity}" filter="url(#${id})"/>`);
+    }
+    toString() {
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.size} ${this.size}" width="${this.size}" height="${this.size}">${this.defs.length?'<defs>'+this.defs.join('')+'</defs>':''}${this.elements.join('')}</svg>`;
+    }
+  }
+
+  // ── IDENTITY: Sacred geometry + feTurbulence noise ──
+  function drawIdentity(rng, noise, pal) {
+    const svg = new SvgBuilder(SIZE);
+    svg.rect(0, 0, SIZE, SIZE, rgb(pal.bg));
+    svg.noiseTexture(rgb(pal.primary), 0.06, rng.range(0.008, 0.015).toFixed(3), rng.int(1, 9999));
+
+    const cx = SIZE/2, cy = SIZE/2;
+    const layers = rng.int(6, 12);
+    const baseRot = rng.range(0, Math.PI);
+    const sym = rng.pick([3, 4, 5, 6, 8]);
+
+    for (let l = 0; l < layers; l++) {
+      const radius = 30 + l * ((SIZE * 0.4) / layers);
+      const rot = baseRot + l * rng.range(0.05, 0.3);
+      const alpha = 0.1 + (l / layers) * 0.5;
+      const lw = 0.5 + (l / layers) * 1.5;
+      const pts = [];
+      for (let i = 0; i < sym; i++) {
+        const a = rot + (i / sym) * Math.PI * 2;
+        const nr = radius + noise.noise2D(a * 2, l * 0.5) * 15;
+        pts.push([cx + Math.cos(a) * nr, cy + Math.sin(a) * nr]);
+      }
+      svg.polygon(pts, rgb(pal.primary), lw, alpha);
+
+      if (l > 1 && rng.next() > 0.3) {
+        const pr = 30 + (l - 1) * ((SIZE * 0.4) / layers);
+        for (let i = 0; i < sym; i++) {
+          const a = rot + (i / sym) * Math.PI * 2;
+          svg.line(cx + Math.cos(a) * pr, cy + Math.sin(a) * pr, cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, rgb(pal.dim), 0.3, alpha * 0.5);
+        }
+      }
+    }
+
+    svg.circle(cx, cy, 50, svg.radGrad(cx, cy, 50, [[0, rgb(pal.primary), 0.6], [0.5, rgb(pal.primary), 0.1], [1, rgb(pal.primary), 0]]));
+
+    for (let i = 0; i < 60; i++) {
+      const a = rng.range(0, Math.PI * 2), d = rng.range(10, SIZE * 0.45);
+      svg.circle(cx + Math.cos(a) * d, cy + Math.sin(a) * d, rng.range(0.5, 2.5), rgb(pal.secondary), rng.range(0.05, 0.4) * (1 - d / (SIZE * 0.5)));
+    }
+    return svg.toString();
+  }
+
+  // ── ATTESTATION: Flow field (reduced particles) ──
+  function drawAttestation(rng, noise, pal) {
+    const svg = new SvgBuilder(SIZE);
+    svg.rect(0, 0, SIZE, SIZE, rgb(pal.bg));
+    svg.noiseTexture(rgb(pal.dim), 0.04, rng.range(0.005, 0.01).toFixed(3), rng.int(1, 9999));
+
+    const scale = rng.range(0.002, 0.006);
+    const strength = rng.range(2, 5);
+    const particles = rng.int(60, 120); // Reduced from 250
+    const steps = rng.int(40, 70); // Reduced from 100
+    const offset = rng.range(0, 100);
+
+    for (let p = 0; p < particles; p++) {
+      let x = rng.range(0, SIZE), y = rng.range(0, SIZE);
+      const hs = rng.next();
+      const la = rng.range(0.03, 0.15);
+      const lw = rng.range(0.5, 2);
+      const color = hs > 0.7 ? pal.secondary : hs > 0.3 ? pal.primary : pal.dim;
+      let d = `M${x.toFixed(0)} ${y.toFixed(0)}`;
+      for (let s = 0; s < steps; s++) {
+        const angle = noise.noise2D(x * scale + offset, y * scale + offset) * Math.PI * strength;
+        x += Math.cos(angle) * 3; y += Math.sin(angle) * 3;
+        d += ` L${x.toFixed(0)} ${y.toFixed(0)}`;
+        if (x < -20 || x > SIZE + 20 || y < -20 || y > SIZE + 20) break;
+      }
+      svg.path(d, rgb(color), lw, la);
+    }
+
+    for (let i = 0; i < rng.int(3, 6); i++) {
+      const nx = rng.range(50, SIZE - 50), ny = rng.range(50, SIZE - 50), nr = rng.range(15, 40);
+      svg.circle(nx, ny, nr, svg.radGrad(nx, ny, nr, [[0, rgb(pal.primary), 0.3], [1, rgb(pal.primary), 0]]));
+    }
+    return svg.toString();
+  }
+
+  // ── CREDENTIAL: Density matrix (optimized grid) ──
+  function drawCredential(rng, noise, pal) {
+    const svg = new SvgBuilder(SIZE);
+    svg.rect(0, 0, SIZE, SIZE, rgb(pal.bg));
+    svg.noiseTexture(rgb(pal.dim), 0.03, rng.range(0.01, 0.02).toFixed(3), rng.int(1, 9999));
+
+    const cellSize = rng.int(12, 20); // Larger cells = fewer elements
+    const cols = Math.ceil(SIZE / cellSize), rows = Math.ceil(SIZE / cellSize);
+    const ns = rng.range(0.015, 0.04);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * cellSize, y = r * cellSize;
+        const density = (noise.noise2D(c * ns, r * ns) + 1) / 2;
+        if (density > 0.7) svg.rect(x + 1, y + 1, cellSize - 2, cellSize - 2, rgb(pal.primary), (density - 0.7) * 1.5);
+        else if (density > 0.55) svg.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2, rgb(pal.primary), 0.5, (density - 0.55) * 0.8);
+      }
+    }
+
+    for (let b = 0; b < rng.int(3, 6); b++) svg.rect(0, rng.range(0, SIZE), SIZE, rng.range(20, 80), rgb(pal.secondary), 0.03);
+
+    for (let i = 0; i < rng.int(4, 10); i++) {
+      const x = rng.range(20, SIZE - 20), y = rng.range(20, SIZE - 20), r = rng.range(3, 8);
+      svg.circle(x, y, r * 3, svg.radGrad(x, y, r * 3, [[0, rgb(pal.secondary), 0.5], [1, rgb(pal.secondary), 0]]));
+    }
+    return svg.toString();
+  }
+
+  // ── RECEIPT: Data bands ──
+  function drawReceipt(rng, noise, pal) {
+    const svg = new SvgBuilder(SIZE);
+    svg.rect(0, 0, SIZE, SIZE, rgb(pal.bg));
+    svg.noiseTexture(rgb(pal.dim), 0.02, '0.015', rng.int(1, 9999));
+
+    const bandCount = rng.int(30, 50); // Reduced
+    for (let i = 0; i < bandCount; i++) {
+      const y = (i / bandCount) * SIZE;
+      const n = noise.noise2D(i * 0.1, 0);
+      const width = Math.abs(n) * SIZE * 0.8;
+      svg.rect((SIZE - width) / 2 + noise.noise2D(0, i * 0.1) * 40, y, width, rng.range(1, 3), rgb(n > 0 ? pal.primary : pal.dim), rng.range(0.03, 0.15));
+    }
+
+    for (let i = 0; i < rng.int(15, 30); i++) {
+      const x = rng.range(20, SIZE - 20), y1 = rng.range(10, SIZE - 10);
+      svg.line(x, y1, x, y1 + rng.range(5, 40), rgb(pal.primary), 1, rng.range(0.1, 0.35));
+    }
+
+    for (let i = 0; i < rng.int(2, 4); i++) {
+      const x = rng.range(30, SIZE * 0.3), y = rng.range(30, SIZE - 100), w = rng.range(SIZE * 0.3, SIZE * 0.6), h = rng.range(30, 80);
+      svg.strokeRect(x, y, w, h, rgb(pal.primary), 1, rng.range(0.08, 0.25));
+      for (let d = 0; d < rng.int(3, 8); d++) svg.rect(x + rng.range(5, w - 5), y + rng.range(5, h - 5), 2, 2, rgb(pal.secondary), rng.range(0.2, 0.5));
+    }
+    return svg.toString();
+  }
+
+  // ── PASS: Energy network ──
+  function drawPass(rng, noise, pal) {
+    const svg = new SvgBuilder(SIZE);
+    svg.rect(0, 0, SIZE, SIZE, rgb(pal.bg));
+    svg.noiseTexture(rgb(pal.dim), 0.03, rng.range(0.006, 0.012).toFixed(3), rng.int(1, 9999));
+
+    const nodeCount = rng.int(8, 16);
+    const nodes = [];
+    for (let i = 0; i < nodeCount; i++) nodes.push({ x: rng.range(40, SIZE - 40), y: rng.range(40, SIZE - 40), r: rng.range(3, 12), energy: rng.range(0.3, 1) });
+
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[j].x - nodes[i].x, dy = nodes[j].y - nodes[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < rng.range(100, 200)) {
+          const alpha = (1 - dist / 200) * 0.3 * nodes[i].energy;
+          const mx = (nodes[i].x + nodes[j].x) / 2 + noise.noise2D(i, j) * 30;
+          const my = (nodes[i].y + nodes[j].y) / 2 + noise.noise2D(j, i) * 30;
+          svg.quad(nodes[i].x, nodes[i].y, mx, my, nodes[j].x, nodes[j].y, rgb(pal.primary), rng.range(0.3, 1.5), alpha);
+        }
+      }
+    }
+
+    for (const node of nodes) {
+      const rays = rng.int(6, 15); // Reduced
+      for (let r = 0; r < rays; r++) {
+        const angle = rng.range(0, Math.PI * 2), len = rng.range(15, 60) * node.energy;
+        svg.line(node.x, node.y, node.x + Math.cos(angle) * len, node.y + Math.sin(angle) * len, rgb(pal.primary), 0.5, rng.range(0.03, 0.15));
+      }
+      svg.circle(node.x, node.y, node.r * 3, svg.radGrad(node.x, node.y, node.r * 3, [[0, rgb(pal.primary), 0.5 * node.energy], [0.5, rgb(pal.primary), 0.1 * node.energy], [1, rgb(pal.primary), 0]]));
+      svg.circle(node.x, node.y, node.r * 0.4, rgb(pal.secondary), 0.6 * node.energy);
+    }
+    return svg.toString();
+  }
+
+  const TYPES = [
+    { name: "IDENTITY", id: 0 },
+    { name: "ATTESTATION", id: 1 },
+    { name: "CREDENTIAL", id: 2 },
+    { name: "RECEIPT", id: 3 },
+    { name: "PASS", id: 4 },
+  ];
+
+  const DRAW = [drawIdentity, drawAttestation, drawCredential, drawReceipt, drawPass];
+  const grid = document.getElementById('grid');
+
+  TYPES.forEach((type, idx) => {
+    for (let v = 0; v < 3; v++) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const seed = hashSeed(`etch-${type.id * 1000 + v}`);
+      const rng = new Rand(seed);
+      const n = new SimplexNoise(seed);
+      const svgStr = DRAW[idx](rng, n, PALETTES[type.id]);
+      card.innerHTML = svgStr;
+
+      const bytes = new Blob([svgStr]).size;
+      const kb = (bytes / 1024).toFixed(1);
+
+      const label = document.createElement('p');
+      label.textContent = type.name;
+      card.appendChild(label);
+      const sub = document.createElement('p');
+      sub.className = 'sub';
+      sub.textContent = `VAR ${v + 1}`;
+      card.appendChild(sub);
+      const sz = document.createElement('p');
+      sz.className = 'size';
+      sz.textContent = `${kb} KB`;
+      card.appendChild(sz);
+      grid.appendChild(card);
+    }
+  });
+  </script>
+</body>
+</html>
