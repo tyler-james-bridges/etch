@@ -1,0 +1,16 @@
+# Foundry
+contracts/out/
+contracts/cache/
+
+# Dependencies (managed by forge)
+contracts/lib/
+
+# OS
+.DS_Store
+
+# Node (future)
+node_modules/
+.next/
+
+# Rust (future)
+target/
