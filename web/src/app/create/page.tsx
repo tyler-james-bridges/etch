@@ -148,13 +148,11 @@ export default function CreatePage() {
         )}
       </div>
 
-      {/* Art preview centered */}
-      <div className="flex justify-center">
-        <div
-          className="border-2 border-black w-[320px] h-[320px] overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:block"
-          dangerouslySetInnerHTML={{ __html: previewSvg }}
-        />
-      </div>
+      {/* Art preview */}
+      <div
+        className="border-2 border-black w-full max-w-xl mx-auto overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+        dangerouslySetInnerHTML={{ __html: previewSvg }}
+      />
       <p className="text-xs text-gray-400 text-center">
         Preview based on your wallet. Final art is unique to the token ID.
       </p>
