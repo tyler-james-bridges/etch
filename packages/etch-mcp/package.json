@@ -1,6 +1,6 @@
 {
   "name": "etch-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for ETCH onchain records on Abstract",
   "type": "module",
   "bin": {
