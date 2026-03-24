@@ -228,36 +228,64 @@ export default async function Home() {
                 Create
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
-              {stats.recentTokens.map((token) => (
-                <Link
-                  key={token.id}
-                  href={`/etch/${token.id}`}
-                  className="border-2 border-black -mt-[2px] -ml-[2px] no-underline hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="aspect-square overflow-hidden">
-                    <EtchArt
-                      tokenId={token.id}
-                      tokenType={token.tokenType}
-                      size={200}
-                    />
+            {stats.recentTokens.length === 1 ? (
+              <Link
+                href={`/etch/${stats.recentTokens[0].id}`}
+                className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block max-w-sm"
+              >
+                <div className="overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
+                  <EtchArt
+                    tokenId={stats.recentTokens[0].id}
+                    tokenType={stats.recentTokens[0].tokenType}
+                    size={400}
+                  />
+                </div>
+                <div className="p-4 border-t-2 border-black">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">ETCH #{stats.recentTokens[0].id}</span>
+                    <span className="text-sm text-gray-500">
+                      {TOKEN_TYPE_LABELS[stats.recentTokens[0].tokenType] || "Unknown"}
+                    </span>
                   </div>
-                  <div className="p-3 border-t-2 border-black">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold">#{token.id}</span>
-                      <span className="text-xs text-gray-500">
-                        {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
-                      </span>
+                  {stats.recentTokens[0].soulbound && (
+                    <span className="text-xs uppercase tracking-wider text-gray-400">
+                      Soulbound
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
+                {stats.recentTokens.map((token) => (
+                  <Link
+                    key={token.id}
+                    href={`/etch/${token.id}`}
+                    className="border-2 border-black -mt-[2px] -ml-[2px] no-underline hover:bg-gray-50 transition-colors group"
+                  >
+                    <div className="overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
+                      <EtchArt
+                        tokenId={token.id}
+                        tokenType={token.tokenType}
+                        size={200}
+                      />
                     </div>
-                    {token.soulbound && (
-                      <span className="text-[10px] uppercase tracking-wider text-gray-400">
-                        Soulbound
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
+                    <div className="p-3 border-t-2 border-black">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">#{token.id}</span>
+                        <span className="text-xs text-gray-500">
+                          {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
+                        </span>
+                      </div>
+                      {token.soulbound && (
+                        <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                          Soulbound
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
