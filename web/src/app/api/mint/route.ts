@@ -4,6 +4,7 @@ import {
   createPublicClient,
   http,
   isAddress,
+  parseEventLogs,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -13,7 +14,44 @@ import { generateEtchMetadata } from "@/lib/art-svg";
 
 const RPC_URL = "https://api.mainnet.abs.xyz";
 
+// Rate limiting: max 3 mints per address per hour
+const mintTimestamps = new Map<string, number[]>();
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
+function checkRateLimit(address: string): boolean {
+  const now = Date.now();
+  const key = address.toLowerCase();
+  const timestamps = mintTimestamps.get(key) || [];
+  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  mintTimestamps.set(key, recent);
+  return recent.length < RATE_LIMIT_MAX;
+}
+
+function recordMint(address: string): void {
+  const key = address.toLowerCase();
+  const timestamps = mintTimestamps.get(key) || [];
+  timestamps.push(Date.now());
+  mintTimestamps.set(key, timestamps);
+}
+
+function checkApiKey(request: NextRequest): boolean {
+  const requiredKey = process.env.ETCH_MINT_API_KEY;
+  if (!requiredKey) return true;
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader) return false;
+  const parts = authHeader.split(" ");
+  return parts.length === 2 && parts[0] === "Bearer" && parts[1] === requiredKey;
+}
+
 export async function POST(request: NextRequest) {
+  if (!checkApiKey(request)) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   const privateKey = process.env.ETCH_MINTER_PRIVATE_KEY;
   if (!privateKey) {
     return NextResponse.json(
@@ -45,6 +83,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!checkRateLimit(to)) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded: max 3 mints per address per hour" },
+      { status: 429 }
+    );
+  }
+
   if (!name || typeof name !== "string" || name.trim().length === 0) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
@@ -70,17 +115,49 @@ export async function POST(request: NextRequest) {
       transport: http(RPC_URL),
     });
 
-    // Get next token ID to generate art deterministically
-    const totalSupply = await publicClient.readContract({
+    const typeLabels = ["Identity", "Attestation", "Credential", "Receipt", "Pass"];
+
+    // Step 1: Mint with temporary metadata (no art, avoids race condition)
+    const tempMetadata = {
+      name: name.trim(),
+      description: description?.trim() || `An onchain ${typeLabels[tokenType] || "token"} etched permanently on Abstract.`,
+      attributes: [
+        { trait_type: "Type", value: typeLabels[tokenType] || "Unknown" },
+        { trait_type: "Soulbound", value: soulbound ? "Yes" : "No" },
+      ],
+    };
+
+    const tempMetadataBase64 = Buffer.from(JSON.stringify(tempMetadata)).toString("base64");
+    const tempMetadataURI = `data:application/json;base64,${tempMetadataBase64}`;
+
+    const hash = await walletClient.writeContract({
       address: ETCH_ADDRESS,
       abi: ETCH_ABI,
-      functionName: "totalSupply",
+      functionName: "etch",
+      args: [to as `0x${string}`, tempMetadataURI, tokenType, soulbound],
     });
-    const nextTokenId = Number(totalSupply);
 
-    // Generate metadata with embedded art
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+    // Step 2: Parse actual tokenId from Etched event logs
+    const etchedEvents = parseEventLogs({
+      abi: ETCH_ABI,
+      eventName: "Etched",
+      logs: receipt.logs,
+    });
+
+    if (etchedEvents.length === 0) {
+      return NextResponse.json(
+        { error: "Mint succeeded but could not parse tokenId from logs", txHash: hash },
+        { status: 500 }
+      );
+    }
+
+    const mintedTokenId = Number(etchedEvents[0].args.tokenId);
+
+    // Step 3: Generate correct art metadata using the real tokenId
     const metadataJson = generateEtchMetadata(
-      nextTokenId,
+      mintedTokenId,
       tokenType,
       name.trim(),
       description?.trim() || "",
@@ -88,37 +165,24 @@ export async function POST(request: NextRequest) {
     );
 
     const metadataBase64 = Buffer.from(metadataJson).toString("base64");
-    const metadataURI = `data:application/json;base64,${metadataBase64}`;
+    const correctMetadataURI = `data:application/json;base64,${metadataBase64}`;
 
-    // Send the mint transaction
-    const hash = await walletClient.writeContract({
+    // Step 4: Update token URI with correct art
+    const updateHash = await walletClient.writeContract({
       address: ETCH_ADDRESS,
       abi: ETCH_ABI,
-      functionName: "etch",
-      args: [to as `0x${string}`, metadataURI, tokenType, soulbound],
+      functionName: "setTokenURI",
+      args: [BigInt(mintedTokenId), correctMetadataURI],
     });
 
-    // Wait for receipt
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    await publicClient.waitForTransactionReceipt({ hash: updateHash });
 
-    // Parse tokenId from Etched event logs
-    let mintedTokenId = nextTokenId;
-    for (const log of receipt.logs) {
-      if (
-        log.topics.length >= 2 &&
-        log.address.toLowerCase() === ETCH_ADDRESS.toLowerCase()
-      ) {
-        const parsedId = parseInt(log.topics[1] as string, 16);
-        if (!isNaN(parsedId)) {
-          mintedTokenId = parsedId;
-          break;
-        }
-      }
-    }
+    recordMint(to);
 
     return NextResponse.json({
       tokenId: mintedTokenId,
       txHash: hash,
+      updateTxHash: updateHash,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Transaction failed";

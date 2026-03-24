@@ -30,7 +30,7 @@ const etchFactoryAbi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function totalSupply() view returns (uint256)",
-  "event Etched(address indexed to, uint256 indexed tokenId, uint8 tokenType, bool soulbound)",
+  "event Etched(uint256 indexed tokenId, address indexed to, string uri, uint8 tokenType, bool soulbound)",
 ]);
 
 const identityRegistryAbi = parseAbi([
@@ -181,30 +181,28 @@ async function toolEtch(args) {
   const typeLabel = tokenTypeToString(tokenTypeU8);
   const desc = description || `Onchain ${typeLabel} record on Abstract.`;
 
-  const metadata = {
+  // Step 1: Mint with temporary metadata (no art image, avoids tokenId guessing)
+  const tempMetadata = {
     name,
     description: desc,
-    image: "https://etch.ack-onchain.dev/api/art/{tokenId}",
-    external_url: "https://etch.ack-onchain.dev/etch/{tokenId}",
     attributes: [
       { trait_type: "Type", value: typeLabel },
       { trait_type: "Soulbound", value: soulbound ? "Yes" : "No" },
     ],
   };
 
-  const metadataStr = JSON.stringify(metadata);
-  const uri = `data:application/json;base64,${Buffer.from(metadataStr).toString("base64")}`;
+  const tempUri = `data:application/json;base64,${Buffer.from(JSON.stringify(tempMetadata)).toString("base64")}`;
 
   const hash = await walletClient.writeContract({
     address: ETCH_FACTORY,
     abi: etchFactoryAbi,
     functionName: "etch",
-    args: [to, uri, tokenTypeU8, soulbound],
+    args: [to, tempUri, tokenTypeU8, soulbound],
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-  // Parse Etched event
+  // Step 2: Parse actual tokenId from Etched event
   let tokenId = null;
   for (const log of receipt.logs) {
     try {
@@ -220,6 +218,35 @@ async function toolEtch(args) {
     } catch {
       // Not our event, skip
     }
+  }
+
+  // Step 3: Update token URI with real tokenId in URLs
+  if (tokenId !== null) {
+    const finalMetadata = {
+      name,
+      description: desc,
+      image: `https://etch.ack-onchain.dev/api/art/${tokenId}`,
+      external_url: `https://etch.ack-onchain.dev/etch/${tokenId}`,
+      attributes: [
+        { trait_type: "Type", value: typeLabel },
+        { trait_type: "Soulbound", value: soulbound ? "Yes" : "No" },
+      ],
+    };
+
+    const finalUri = `data:application/json;base64,${Buffer.from(JSON.stringify(finalMetadata)).toString("base64")}`;
+
+    const setTokenUriAbi = parseAbi([
+      "function setTokenURI(uint256 tokenId, string uri)",
+    ]);
+
+    const updateHash = await walletClient.writeContract({
+      address: ETCH_FACTORY,
+      abi: setTokenUriAbi,
+      functionName: "setTokenURI",
+      args: [BigInt(tokenId), finalUri],
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash: updateHash });
   }
 
   const result = {

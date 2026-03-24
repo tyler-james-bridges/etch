@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// WARNING: This script has its own art implementation that may differ from the
+// web app's art-svg.ts. For production minting, use the /api/mint endpoint
+// which uses art-svg.ts directly.
+//
 // Generate optimized SVG metadata data URI for onchain minting
 // Uses feTurbulence for noise texture instead of thousands of rects
 

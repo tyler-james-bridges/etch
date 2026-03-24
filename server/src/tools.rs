@@ -178,8 +178,12 @@ async fn tool_etch(args: &Value, config: &Arc<Config>) -> Result<String, String>
         .await;
     let _ = total_supply; // Just checking connectivity
 
-    // Build metadata JSON with art image pointing to our API
-    // The art is generated deterministically from tokenId, so the API serves correct art
+    // NOTE: This Rust server has a known issue where {{tokenId}} produces literal
+    // "{tokenId}" in the metadata URLs instead of the actual token ID. The correct
+    // fix requires a two-step approach (mint first, parse tokenId from receipt, then
+    // call setTokenURI with correct metadata). This is implemented in the Node.js
+    // MCP package (packages/etch-mcp/server.js) which replaces this Rust server.
+    // Do not restructure this Rust code - use the Node.js package instead.
     let type_label = contracts::token_type_to_string(token_type);
     let desc = if description.is_empty() {
         format!("Onchain {} record on Abstract.", type_label)

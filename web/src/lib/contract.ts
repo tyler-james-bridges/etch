@@ -88,6 +88,16 @@ export const ETCH_ABI = [
     ],
   },
   {
+    type: "function",
+    name: "setTokenURI",
+    inputs: [
+      { name: "tokenId", type: "uint256" },
+      { name: "uri", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
     type: "event",
     name: "Transfer",
     inputs: [

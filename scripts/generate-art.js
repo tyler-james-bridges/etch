@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// WARNING: This script has its own art implementation that may differ from the
+// web app's art-svg.ts. For production minting, use the /api/mint endpoint
+// which uses art-svg.ts directly.
 
 const { createCanvas } = require('@napi-rs/canvas');
 const fs = require('fs');

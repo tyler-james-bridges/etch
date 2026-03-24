@@ -49,11 +49,7 @@ const TOKEN_TYPES = [
     id: 4,
     description: "Access tokens. Gated entry to anything onchain.",
   },
-  {
-    name: "Custom",
-    id: 5,
-    description: "Your type. Whatever does not fit the others.",
-  },
+
 ];
 
 const FAQ_ITEMS = [
