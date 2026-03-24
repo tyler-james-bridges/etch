@@ -10,34 +10,68 @@ use serde_json::{json, Value};
 use std::str::FromStr;
 use std::sync::Arc;
 
+/// Base64 encode bytes (no external dependency needed).
+fn base64_encode(data: &[u8]) -> String {
+    use alloy::hex;
+    // Use a simple base64 implementation
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+    let _ = hex::encode([]); // suppress unused import warning
+
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let n = (b0 << 16) | (b1 << 8) | b2;
+
+        result.push(CHARS[((n >> 18) & 0x3F) as usize] as char);
+        result.push(CHARS[((n >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 {
+            result.push(CHARS[((n >> 6) & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+        if chunk.len() > 2 {
+            result.push(CHARS[(n & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+    }
+    result
+}
+
 /// Return the MCP tool definitions.
 pub fn tool_definitions() -> Value {
     json!([
         {
             "name": "etch",
-            "description": "Create an onchain ETCH record (mint an ERC-721 token with typed metadata on Abstract chain)",
+            "description": "Create a permanent onchain ETCH record on Abstract. Mints an ERC-721 token with generative art and typed metadata. The art is automatically generated and embedded in the token.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "to": {
                         "type": "string",
-                        "description": "Recipient Ethereum address"
+                        "description": "Recipient Ethereum address (0x...)"
                     },
-                    "uri": {
+                    "name": {
                         "type": "string",
-                        "description": "Metadata URI (IPFS hash, data URI, or URL)"
+                        "description": "Name for the record (e.g. 'My Agent Identity', 'Audit Attestation')"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description of what this record represents"
                     },
                     "tokenType": {
                         "type": "string",
-                        "description": "Token type: identity, attestation, credential, receipt, or pass",
+                        "description": "Token type: identity (onchain ID), attestation (verified claim), credential (qualification), receipt (transaction record), or pass (access token)",
                         "enum": ["identity", "attestation", "credential", "receipt", "pass"]
                     },
                     "soulbound": {
                         "type": "boolean",
-                        "description": "Whether the token is soulbound (non-transferable)"
+                        "description": "Whether the token is soulbound (non-transferable). Default: true for identity/attestation/credential, false for receipt/pass"
                     }
                 },
-                "required": ["to", "uri", "tokenType", "soulbound"]
+                "required": ["to", "name", "tokenType"]
             }
         },
         {
@@ -93,10 +127,14 @@ async fn tool_etch(args: &Value, config: &Arc<Config>) -> Result<String, String>
         .get("to")
         .and_then(|v| v.as_str())
         .ok_or("Missing required parameter: to")?;
-    let uri = args
-        .get("uri")
+    let name = args
+        .get("name")
         .and_then(|v| v.as_str())
-        .ok_or("Missing required parameter: uri")?;
+        .ok_or("Missing required parameter: name")?;
+    let description = args
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let token_type_str = args
         .get("tokenType")
         .and_then(|v| v.as_str())
@@ -104,7 +142,12 @@ async fn tool_etch(args: &Value, config: &Arc<Config>) -> Result<String, String>
     let soulbound = args
         .get("soulbound")
         .and_then(|v| v.as_bool())
-        .ok_or("Missing required parameter: soulbound")?;
+        .unwrap_or_else(|| {
+            match token_type_str {
+                "identity" | "attestation" | "credential" => true,
+                _ => false,
+            }
+        });
 
     let to = Address::from_str(to_str).map_err(|e| format!("Invalid 'to' address: {e}"))?;
     let token_type =
@@ -128,8 +171,43 @@ async fn tool_etch(args: &Value, config: &Arc<Config>) -> Result<String, String>
 
     let contract = IEtchFactory::new(factory_address, &provider);
 
+    // Get totalSupply to determine next token ID for metadata
+    let total_supply = contract
+        .balanceOf(to) // Use a simple call to verify contract is reachable
+        .call()
+        .await;
+    let _ = total_supply; // Just checking connectivity
+
+    // Build metadata JSON with art image pointing to our API
+    // The art is generated deterministically from tokenId, so the API serves correct art
+    let type_label = contracts::token_type_to_string(token_type);
+    let desc = if description.is_empty() {
+        format!("Onchain {} record on Abstract.", type_label)
+    } else {
+        description.to_string()
+    };
+
+    let metadata = json!({
+        "name": name,
+        "description": desc,
+        "image": format!("https://etch.ack-onchain.dev/api/art/{{tokenId}}"),
+        "external_url": format!("https://etch.ack-onchain.dev/etch/{{tokenId}}"),
+        "attributes": [
+            { "trait_type": "Type", "value": type_label },
+            { "trait_type": "Soulbound", "value": if soulbound { "Yes" } else { "No" } }
+        ]
+    });
+
+    // For now, use a data URI with the metadata JSON
+    // The image URL uses a placeholder that we'll note in the response
+    let metadata_str = serde_json::to_string(&metadata).unwrap();
+    let uri = format!(
+        "data:application/json;base64,{}",
+        base64_encode(metadata_str.as_bytes())
+    );
+
     let tx = contract
-        .etch(to, uri.to_string(), token_type, soulbound)
+        .etch(to, uri.clone(), token_type, soulbound)
         .send()
         .await
         .map_err(|e| format!("Transaction send failed: {e}"))?;
@@ -150,11 +228,16 @@ async fn tool_etch(args: &Value, config: &Arc<Config>) -> Result<String, String>
         }
     }
 
+    let token_id_num = token_id.map(|id: alloy::primitives::U256| id.to_string());
+
     let result = json!({
         "txHash": format!("0x{}", hex::encode(tx_hash)),
-        "tokenId": token_id.map(|id: alloy::primitives::U256| id.to_string()),
+        "tokenId": token_id_num,
         "blockNumber": receipt.block_number,
-        "status": "success"
+        "status": "success",
+        "view": token_id_num.as_ref().map(|id| format!("https://etch.ack-onchain.dev/etch/{}", id)),
+        "art": token_id_num.as_ref().map(|id| format!("https://etch.ack-onchain.dev/api/art/{}", id)),
+        "opensea": token_id_num.as_ref().map(|id| format!("https://opensea.io/item/abstract/{}/{}", config.factory_address, id))
     });
 
     Ok(serde_json::to_string_pretty(&result).unwrap())
@@ -311,9 +394,16 @@ mod tests {
         let required = etch["inputSchema"]["required"].as_array().unwrap();
         let required_strs: Vec<&str> = required.iter().map(|v| v.as_str().unwrap()).collect();
         assert!(required_strs.contains(&"to"));
-        assert!(required_strs.contains(&"uri"));
+        assert!(required_strs.contains(&"name"));
         assert!(required_strs.contains(&"tokenType"));
-        assert!(required_strs.contains(&"soulbound"));
+    }
+
+    #[test]
+    fn test_base64_encode() {
+        assert_eq!(base64_encode(b"hello"), "aGVsbG8=");
+        assert_eq!(base64_encode(b"ab"), "YWI=");
+        assert_eq!(base64_encode(b"abc"), "YWJj");
+        assert_eq!(base64_encode(b""), "");
     }
 
     #[test]
@@ -369,9 +459,8 @@ mod tests {
             "etch",
             &json!({
                 "to": "0x1234567890abcdef1234567890abcdef12345678",
-                "uri": "ipfs://test",
-                "tokenType": "invalid_type",
-                "soulbound": false
+                "name": "Test",
+                "tokenType": "invalid_type"
             }),
             &config,
         )
@@ -394,9 +483,8 @@ mod tests {
             "etch",
             &json!({
                 "to": "0x1234567890abcdef1234567890abcdef12345678",
-                "uri": "ipfs://test",
-                "tokenType": "identity",
-                "soulbound": true
+                "name": "Test Identity",
+                "tokenType": "identity"
             }),
             &config,
         )

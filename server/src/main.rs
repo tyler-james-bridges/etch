@@ -13,8 +13,8 @@ pub struct Config {
     #[arg(long, env = "ETCH_RPC_URL", default_value = "https://api.mainnet.abs.xyz")]
     pub rpc_url: String,
 
-    /// EtchFactory contract address
-    #[arg(long, env = "ETCH_FACTORY_ADDRESS", default_value = "0x16a7aE2AA635cc931fC1D71CE1374f415a4b5dD5")]
+    /// Etch contract address
+    #[arg(long, env = "ETCH_FACTORY_ADDRESS", default_value = "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C")]
     pub factory_address: String,
 
     /// Private key for signing transactions
