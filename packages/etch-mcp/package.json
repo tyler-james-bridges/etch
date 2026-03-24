@@ -1,0 +1,31 @@
+{
+  "name": "etch-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for ETCH onchain records on Abstract",
+  "type": "module",
+  "bin": {
+    "etch-mcp": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "viem": "^2.31.3"
+  },
+  "author": "ACK Protocol",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tyler-james-bridges/etch"
+  },
+  "keywords": [
+    "mcp",
+    "etch",
+    "abstract",
+    "nft",
+    "erc721",
+    "onchain",
+    "agent"
+  ]
+}
