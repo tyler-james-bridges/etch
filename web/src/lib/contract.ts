@@ -108,6 +108,26 @@ export const ETCH_ABI = [
   },
 ] as const satisfies Abi;
 
+export const IDENTITY_REGISTRY_ADDRESS =
+  "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
+
+export const IDENTITY_REGISTRY_ABI = [
+  {
+    name: "register",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "agentURI", type: "string" }],
+    outputs: [{ name: "agentId", type: "uint256" }],
+  },
+  {
+    name: "agentOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
 export const TOKEN_TYPE_LABELS: Record<number, string> = {
   0: "Identity",
   1: "Attestation",
