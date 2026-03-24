@@ -1,5 +1,11 @@
-import { publicClient, ETCH_ADDRESS, ETCH_ABI } from "@/lib/contract";
+import {
+  publicClient,
+  ETCH_ADDRESS,
+  ETCH_ABI,
+  TOKEN_TYPE_LABELS,
+} from "@/lib/contract";
 import { CopyButton } from "@/components/CopyButton";
+import { EtchArt } from "@/components/etch-art";
 import Link from "next/link";
 
 export const revalidate = 30;
@@ -77,13 +83,68 @@ const FAQ_ITEMS = [
   },
 ];
 
+type TokenInfo = {
+  id: number;
+  tokenType: number;
+  soulbound: boolean;
+  owner: string;
+};
+
 async function getStats() {
   const totalSupply = await publicClient.readContract({
     address: ETCH_ADDRESS,
     abi: ETCH_ABI,
     functionName: "totalSupply",
   });
-  return { totalSupply: Number(totalSupply) };
+
+  const total = Number(totalSupply);
+
+  // Fetch recent tokens (up to 12, newest first)
+  const count = Math.min(total, 12);
+  const recentTokens: TokenInfo[] = [];
+
+  for (let i = total - 1; i >= total - count && i >= 0; i--) {
+    try {
+      const tokenId = await publicClient.readContract({
+        address: ETCH_ADDRESS,
+        abi: ETCH_ABI,
+        functionName: "tokenByIndex",
+        args: [BigInt(i)],
+      });
+
+      const [tokenType, soulbound, owner] = await Promise.all([
+        publicClient.readContract({
+          address: ETCH_ADDRESS,
+          abi: ETCH_ABI,
+          functionName: "tokenType",
+          args: [tokenId as bigint],
+        }),
+        publicClient.readContract({
+          address: ETCH_ADDRESS,
+          abi: ETCH_ABI,
+          functionName: "isSoulbound",
+          args: [tokenId as bigint],
+        }),
+        publicClient.readContract({
+          address: ETCH_ADDRESS,
+          abi: ETCH_ABI,
+          functionName: "ownerOf",
+          args: [tokenId as bigint],
+        }),
+      ]);
+
+      recentTokens.push({
+        id: Number(tokenId),
+        tokenType: Number(tokenType),
+        soulbound: soulbound as boolean,
+        owner: owner as string,
+      });
+    } catch {
+      // Skip tokens that fail to load
+    }
+  }
+
+  return { totalSupply: total, recentTokens };
 }
 
 export default async function Home() {
@@ -144,6 +205,55 @@ export default async function Home() {
           </a>
         </div>
       </section>
+
+      {/* ---- GALLERY ---- */}
+      {stats.recentTokens.length > 0 && (
+        <section className="border-b-2 border-black px-4 py-12 md:py-16">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+                Recent Etches
+              </h2>
+              <Link
+                href="/create"
+                className="border-2 border-black px-4 py-1.5 text-xs font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
+              >
+                Create
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
+              {stats.recentTokens.map((token) => (
+                <Link
+                  key={token.id}
+                  href={`/etch/${token.id}`}
+                  className="border-2 border-black -mt-[2px] -ml-[2px] no-underline hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="aspect-square overflow-hidden">
+                    <EtchArt
+                      tokenId={token.id}
+                      tokenType={token.tokenType}
+                      size={200}
+                    />
+                  </div>
+                  <div className="p-3 border-t-2 border-black">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">#{token.id}</span>
+                      <span className="text-xs text-gray-500">
+                        {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
+                      </span>
+                    </div>
+                    {token.soulbound && (
+                      <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                        Soulbound
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ---- TERMINAL DEMO ---- */}
       <section className="border-b-2 border-black px-4 py-12 md:py-16">
