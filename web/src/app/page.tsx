@@ -63,7 +63,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How do I use it?",
-    a: "Add the MCP server to your AI agent or coding assistant. The agent gets tools to mint, query, and manage ETCH tokens directly from conversation.",
+    a: "Agents: add the MCP server to your config (npx etch-mcp). Humans: connect your wallet on the Create page and mint directly. Both get generative art and onchain metadata.",
   },
   {
     q: "What is MCP?",
@@ -71,7 +71,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "Does it cost anything?",
-    a: "Minting requires a small amount of ETH on Abstract for gas. There are no protocol fees.",
+    a: "Minting via the web app is free (we cover gas). MCP minting requires a small amount of ETH on Abstract for gas. No protocol fees either way.",
+  },
+  {
+    q: "What is the ERC-8004 agent registration?",
+    a: "When you create an Identity token, you can also register as an ERC-8004 agent on Abstract. This gives you a permanent onchain agent identity with a metadata profile, discoverable by other agents and protocols.",
   },
   {
     q: "Why Abstract?",
@@ -165,7 +169,7 @@ export default async function Home() {
             FAQ
           </a>
           <a
-            href="https://github.com/ack-protocol/etch"
+            href="https://github.com/tyler-james-bridges/etch"
             target="_blank"
             rel="noopener noreferrer"
             className="no-underline hover:underline"
@@ -181,15 +185,22 @@ export default async function Home() {
           ETCH
         </h1>
         <p className="mt-4 text-lg md:text-xl max-w-xl">
-          Permanent, typed, onchain records on Abstract. Built for AI agents.
-          Controlled via MCP.
+          Permanent onchain records with generative art on Abstract.
+          For AI agents via MCP. For humans via the web.
+          Optionally register as an ERC-8004 agent in one click.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/create"
+            className="bg-black text-white px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-gray-800 transition-colors"
+          >
+            Create
+          </Link>
           <a
             href="#setup"
             className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
           >
-            Get Started
+            MCP Setup
           </a>
           <a
             href="https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C"
@@ -197,7 +208,7 @@ export default async function Home() {
             rel="noopener noreferrer"
             className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
           >
-            View Contract
+            Contract
           </a>
         </div>
       </section>
@@ -262,24 +273,24 @@ export default async function Home() {
               <span className="text-gray-500">{"// You talk to your agent"}</span>
               {"\n"}
               <span className="text-white">{">"}</span>
-              {" Mint a soulbound credential for 0xAb5...3fC\n"}
-              <span className="text-white">{">"}</span>
-              {" type: Credential, uri: ipfs://Qm...abc\n\n"}
+              {" Etch a soulbound credential for 0xAb5...3fC\n\n"}
               <span className="text-gray-500">{"// Agent calls ETCH via MCP"}</span>
               {"\n"}
-              <span className="text-blue-400">etch.mint</span>
+              <span className="text-blue-400">etch</span>
               {"({\n"}
               {"  to: \"0xAb5...3fC\",\n"}
-              {"  tokenType: 2,\n"}
-              {"  uri: \"ipfs://Qm...abc\",\n"}
+              {"  name: \"Audit Verified\",\n"}
+              {"  tokenType: \"credential\",\n"}
               {"  soulbound: true\n"}
               {"})\n\n"}
-              <span className="text-gray-500">{"// Token #42 minted on Abstract"}</span>
+              <span className="text-gray-500">{"// Generative art + metadata minted onchain"}</span>
               {"\n"}
               <span className="text-green-300">{"OK"}</span>
-              {" tokenId: 42 | type: Credential | soulbound: true\n"}
+              {" tokenId: 1 | type: credential | soulbound: true\n"}
               <span className="text-green-300">{"OK"}</span>
-              {" tx: 0x8f3...a1d"}
+              {" tx: 0xae1...5cc\n"}
+              <span className="text-green-300">{"OK"}</span>
+              {" etch.ack-onchain.dev/etch/1"}
             </pre>
           </div>
         </div>
@@ -423,7 +434,7 @@ export default async function Home() {
           </div>
           <div className="flex gap-4 text-sm">
             <a
-              href="https://github.com/ack-protocol/etch"
+              href="https://github.com/tyler-james-bridges/etch"
               target="_blank"
               rel="noopener noreferrer"
               className="no-underline hover:underline"
