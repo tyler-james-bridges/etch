@@ -229,9 +229,10 @@ export default async function Home() {
               </Link>
             </div>
             {stats.recentTokens.length === 1 ? (
+              <div className="flex justify-center">
               <Link
                 href={`/etch/${stats.recentTokens[0].id}`}
-                className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block max-w-sm mx-auto"
+                className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block w-full max-w-xs sm:max-w-sm"
               >
                 <div className="overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
                   <EtchArt
@@ -254,6 +255,7 @@ export default async function Home() {
                   )}
                 </div>
               </Link>
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
                 {stats.recentTokens.map((token) => (
