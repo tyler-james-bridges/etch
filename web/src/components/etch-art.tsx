@@ -14,7 +14,7 @@ export function EtchArt({ tokenId, tokenType, size = 400 }: EtchArtProps) {
 
   return (
     <div
-      className="border-2 border-black"
+      className="border-2 border-black [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
       style={{ width: size, maxWidth: '100%' }}
       dangerouslySetInnerHTML={{ __html: svg }}
     />

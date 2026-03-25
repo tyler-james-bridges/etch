@@ -2,6 +2,7 @@
 // Deterministic: same tokenId always produces same SVG
 
 const SIZE = 400;
+const VIEWBOX_PADDING = 8;
 
 type Palette = {
   bg: [number, number, number];
@@ -99,7 +100,8 @@ class SvgBuilder {
     return `url(#${id})`;
   }
   toString(): string {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.size} ${this.size}" width="${this.size}" height="${this.size}">${this.defs.length ? '<defs>' + this.defs.join('') + '</defs>' : ''}${this.elements.join('')}</svg>`;
+    const paddedSize = this.size + VIEWBOX_PADDING * 2;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-VIEWBOX_PADDING} ${-VIEWBOX_PADDING} ${paddedSize} ${paddedSize}" width="${this.size}" height="${this.size}">${this.defs.length ? '<defs>' + this.defs.join('') + '</defs>' : ''}${this.elements.join('')}</svg>`;
   }
 }
 
