@@ -216,7 +216,8 @@ function drawIdentity(
     ctx.beginPath();
     for (let i = 0; i <= symmetry; i++) {
       const a = rot + (i / symmetry) * Math.PI * 2;
-      const nr = radius + noise.noise2D(a * 2, l * 0.5) * 15 * s;
+      const noiseScale = Math.max(0, 1 - l / layers) * 0.08;
+      const nr = radius + noise.noise2D(a * 2, l * 0.5) * (radius * noiseScale) * s;
       const px = cx + Math.cos(a) * nr;
       const py = cy + Math.sin(a) * nr;
       i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);

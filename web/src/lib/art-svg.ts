@@ -126,7 +126,8 @@ function drawIdentity(rng: Rand, noise: SimplexNoise, pal: Palette): string {
     const points: number[][] = [];
     for (let i = 0; i < symmetry; i++) {
       const a = rot + (i / symmetry) * Math.PI * 2;
-      const nr = radius + noise.noise2D(a * 2, l * 0.5) * 15;
+      const noiseScale = Math.max(0, 1 - l / layers) * 0.08;
+      const nr = radius + noise.noise2D(a * 2, l * 0.5) * (radius * noiseScale);
       points.push([cx + Math.cos(a) * nr, cy + Math.sin(a) * nr]);
     }
     svg.polygon(points, rgb(pal.primary), lw, alpha);
