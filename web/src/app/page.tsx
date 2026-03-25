@@ -231,7 +231,7 @@ export default async function Home() {
             {stats.recentTokens.length === 1 ? (
               <Link
                 href={`/etch/${stats.recentTokens[0].id}`}
-                className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block max-w-sm"
+                className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block max-w-sm mx-auto"
               >
                 <div className="overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
                   <EtchArt
