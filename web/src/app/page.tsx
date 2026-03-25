@@ -5,7 +5,7 @@ import {
   TOKEN_TYPE_LABELS,
 } from "@/lib/contract";
 import { CopyButton } from "@/components/CopyButton";
-import { EtchArt } from "@/components/etch-art";
+import { generateEtchSvg } from "@/lib/art-svg";
 import Link from "next/link";
 
 export const revalidate = 30;
@@ -88,6 +88,7 @@ type TokenInfo = {
   tokenType: number;
   soulbound: boolean;
   owner: string;
+  svg: string;
 };
 
 async function getStats() {
@@ -133,11 +134,14 @@ async function getStats() {
         }),
       ]);
 
+      const id = Number(tokenId);
+      const type = Number(tokenType);
       recentTokens.push({
-        id: Number(tokenId),
-        tokenType: Number(tokenType),
+        id,
+        tokenType: type,
         soulbound: soulbound as boolean,
         owner: owner as string,
+        svg: generateEtchSvg(id, type),
       });
     } catch {
       // Skip tokens that fail to load
@@ -233,13 +237,10 @@ export default async function Home() {
                 href={`/etch/${stats.recentTokens[0].id}`}
                 className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block max-w-sm mx-auto"
               >
-                <div className="overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
-                  <EtchArt
-                    tokenId={stats.recentTokens[0].id}
-                    tokenType={stats.recentTokens[0].tokenType}
-                    size={400}
-                  />
-                </div>
+                <div
+                  className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+                  dangerouslySetInnerHTML={{ __html: stats.recentTokens[0].svg }}
+                />
                 <div className="p-4 border-t-2 border-black">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold">ETCH #{stats.recentTokens[0].id}</span>
@@ -262,13 +263,10 @@ export default async function Home() {
                     href={`/etch/${token.id}`}
                     className="border-2 border-black -mt-[2px] -ml-[2px] no-underline hover:bg-gray-50 transition-colors group"
                   >
-                    <div className="overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
-                      <EtchArt
-                        tokenId={token.id}
-                        tokenType={token.tokenType}
-                        size={200}
-                      />
-                    </div>
+                    <div
+                      className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+                      dangerouslySetInnerHTML={{ __html: token.svg }}
+                    />
                     <div className="p-3 border-t-2 border-black">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold">#{token.id}</span>
