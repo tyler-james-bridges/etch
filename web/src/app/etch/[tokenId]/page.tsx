@@ -188,7 +188,7 @@ export default async function TokenPage({
 
         <div className="flex-grow space-y-4">
           {description && (
-            <p className="text-lg">{description}</p>
+            <p className="text-lg break-words [overflow-wrap:anywhere]">{description}</p>
           )}
 
           <div className="border-2 border-black divide-y-2 divide-black">

@@ -12,5 +12,8 @@ contracts/lib/
 node_modules/
 .next/
 
+# Local research/docs (do not commit)
+web/docs/
+
 # Rust (future)
 target/
