@@ -16,7 +16,7 @@
  *   PAYER_PRIVATE_KEY  — hex private key with USDC.e on Abstract
  */
 
-import { createWalletClient, http, createPublicClient } from 'viem';
+import { createWalletClient, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { abstract } from 'viem/chains';
 
@@ -171,38 +171,31 @@ try {
   const account = privateKeyToAccount(PAYER_KEY as `0x${string}`);
   console.log(`Payer address: ${account.address}`);
 
-  const publicClient = createPublicClient({
-    chain: abstract,
-    transport: http('https://api.mainnet.abs.xyz'),
-  });
-
   const walletClient = createWalletClient({
     account,
     chain: abstract,
     transport: http('https://api.mainnet.abs.xyz'),
+  }).extend(publicActions);
+
+  // Use the exact same pattern as ACK known-good x402 flow
+  const { wrapFetchWithPaymentFromConfig } = await import('@x402/fetch');
+  const { ExactEvmScheme } = await import('@x402/evm/exact/client');
+
+  const signer = {
+    address: account.address,
+    signTypedData: (msg: Record<string, unknown>) =>
+      walletClient.signTypedData(msg as Parameters<typeof walletClient.signTypedData>[0]),
+    readContract: (args: Record<string, unknown>) =>
+      walletClient.readContract(args as Parameters<typeof walletClient.readContract>[0]),
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scheme = new ExactEvmScheme(signer as any);
+  const paidFetch = wrapFetchWithPaymentFromConfig(fetch, {
+    schemes: [{ network: 'eip155:2741', client: scheme }],
   });
 
-  // Build signer for @x402/evm client scheme
-  const { ExactEvmScheme, toClientEvmSigner } = await import('@x402/evm');
-  const { x402Client, x402HTTPClient } = await import('@x402/core/client');
-  const { wrapFetchWithPayment } = await import('@x402/fetch');
-
-  const signer = toClientEvmSigner(
-    { ...walletClient, address: account.address } as any,
-    publicClient as any
-  );
-  const scheme = new ExactEvmScheme(signer);
-
-  const client = new x402Client();
-  client.register('eip155:2741' as any, scheme as any);
-
-  console.log('x402 client configured. Sending paid request...\n');
-
-  // wrapFetchWithPayment handles the full 402→sign→replay flow
-  const paidFetch = wrapFetchWithPayment(
-    globalThis.fetch.bind(globalThis),
-    client
-  );
+  console.log('x402 client configured (ACK flow). Sending paid request...\n');
 
   const paidRes = await paidFetch(NOTARIZE_URL, {
     method: 'POST',
@@ -228,9 +221,28 @@ try {
     process.exit(0);
   } else if (paidRes.status === 402) {
     console.log(
-      '\nBLOCKER: Still 402 after payment. Facilitator may have rejected.'
+      '\nBLOCKER: Still 402 after payment. Facilitator likely rejected payment proof.'
     );
-    console.log('Check USDC.e balance/allowance for the payer address.');
+
+    const paidHeader =
+      paidRes.headers.get('payment-required') ||
+      paidRes.headers.get('x-payment') ||
+      paidRes.headers.get('X-PAYMENT');
+
+    if (paidHeader) {
+      try {
+        const decoded = JSON.parse(
+          Buffer.from(paidHeader, 'base64').toString('utf-8')
+        );
+        console.log('\nDecoded paid 402 challenge/error payload:');
+        console.log(JSON.stringify(decoded, null, 2).slice(0, 3000));
+        console.log(`\nError field: ${decoded?.error || 'n/a'}`);
+      } catch {
+        console.log('\nCould not decode paid 402 header payload.');
+      }
+    }
+
+    console.log('Balance is present; likely proof validation mismatch or network/tooling incompatibility.');
   } else {
     console.log(`\nBLOCKER: Expected 200, got ${paidRes.status}.`);
   }
