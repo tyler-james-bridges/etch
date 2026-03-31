@@ -53,9 +53,7 @@ function getServer(): x402ResourceServer {
 
     _server = new x402ResourceServer(
       new HTTPFacilitatorClient({ url: X402_FACILITATOR_URL })
-    )
-      .register(ABSTRACT_NETWORK, scheme)
-      .register(BASE_NETWORK, scheme);
+    ).register('eip155:*' as Network, scheme);
   }
 
   return _server;
