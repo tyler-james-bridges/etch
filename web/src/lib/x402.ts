@@ -16,9 +16,10 @@ export const ABSTRACT_USDC = '0x84A71ccD554Cc1b02749b35d22F684CC8ec987e1';
 export const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 export const USDC_DECIMALS = 6;
 
-const DEFAULT_PAY_TO =
+const DEFAULT_PAY_TO = (
   process.env.ETCH_MINTER_ADDRESS ||
-  '0x668aDd9213985E7Fd613Aec87767C892f4b9dF1c';
+  '0x668aDd9213985E7Fd613Aec87767C892f4b9dF1c'
+).trim();
 
 let _abstractServer: x402ResourceServer | null = null;
 let _baseServer: x402ResourceServer | null = null;

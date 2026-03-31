@@ -37,6 +37,7 @@ const REQUEST_BODY = JSON.stringify({
   data: `x402 smoke test ${Date.now()}`,
   type: 'receipt',
   chain: TARGET_CHAIN,
+  to: '0x668aDd9213985E7Fd613Aec87767C892f4b9dF1c',
 });
 
 // ---------------------------------------------------------------------------
