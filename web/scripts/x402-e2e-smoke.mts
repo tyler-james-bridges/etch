@@ -18,7 +18,7 @@
 
 import { createWalletClient, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { abstract } from 'viem/chains';
+import { abstract, base } from 'viem/chains';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -29,9 +29,14 @@ const NOTARIZE_URL = `${BASE_URL}/api/v1/notarize`;
 
 const PAYER_KEY = process.env.PAYER_PRIVATE_KEY;
 
+const TARGET_CHAIN = (process.env.ETCH_CHAIN || 'abstract') as 'abstract' | 'base';
+const TARGET_NETWORK = TARGET_CHAIN === 'base' ? 'eip155:8453' : 'eip155:2741';
+const TARGET_RPC = TARGET_CHAIN === 'base' ? 'https://mainnet.base.org' : 'https://api.mainnet.abs.xyz';
+
 const REQUEST_BODY = JSON.stringify({
   data: `x402 smoke test ${Date.now()}`,
   type: 'receipt',
+  chain: TARGET_CHAIN,
 });
 
 // ---------------------------------------------------------------------------
@@ -161,7 +166,7 @@ banner('Step 3+4: Sign payment & replay via @x402/fetch');
 if (!PAYER_KEY) {
   console.log('BLOCKER: PAYER_PRIVATE_KEY not set. Cannot sign payment.');
   console.log(
-    'Set it to a hex private key that holds USDC.e on Abstract mainnet.'
+    `Set it to a hex private key that holds USDC on target chain (${TARGET_CHAIN}).`
   );
   console.log('\nDry-run complete — 402 challenge parsed successfully.');
   process.exit(1);
@@ -173,8 +178,8 @@ try {
 
   const walletClient = createWalletClient({
     account,
-    chain: abstract,
-    transport: http('https://api.mainnet.abs.xyz'),
+    chain: TARGET_CHAIN === 'base' ? base : abstract,
+    transport: http(TARGET_RPC),
   }).extend(publicActions);
 
   // Use the exact same pattern as ACK known-good x402 flow
@@ -192,7 +197,7 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scheme = new ExactEvmScheme(signer as any);
   const paidFetch = wrapFetchWithPaymentFromConfig(fetch, {
-    schemes: [{ network: 'eip155:2741', client: scheme }],
+    schemes: [{ network: TARGET_NETWORK, client: scheme }],
   });
 
   console.log('x402 client configured (ACK flow). Sending paid request...\n');

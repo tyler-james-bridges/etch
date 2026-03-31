@@ -57,6 +57,13 @@ async function handler(request: NextRequest) {
     );
   }
 
+  if (body.chain && body.chain !== "abstract" && body.chain !== "base") {
+    return NextResponse.json(
+      { error: "chain must be 'abstract' or 'base'" },
+      { status: 400 }
+    );
+  }
+
   const minterAddress = process.env.ETCH_MINTER_ADDRESS;
   const recipient = (body.to || minterAddress) as string;
 
@@ -97,6 +104,7 @@ const notarizeExtensions = declareDiscoveryExtension({
     data: "The UTF-8 string data to notarize",
     type: "receipt",
     soulbound: true,
+    chain: "abstract",
   },
   inputSchema: {
     type: "object",
@@ -115,6 +123,11 @@ const notarizeExtensions = declareDiscoveryExtension({
       to: {
         type: "string",
         description: "Recipient address (0x...). Defaults to minter address.",
+      },
+      chain: {
+        type: "string",
+        enum: ["abstract", "base"],
+        description: "Target chain for notarization. Defaults to abstract.",
       },
     },
   },

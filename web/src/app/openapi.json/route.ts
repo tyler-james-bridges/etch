@@ -5,7 +5,7 @@ const spec = {
   info: {
     title: "ETCH Notarization API",
     version: "1.0.0",
-    description: "Onchain notarization on Abstract via ETCH NFTs.",
+    description: "Onchain notarization on Abstract or Base via ETCH NFTs.",
     "x-guidance":
       "Use POST /api/v1/notarize to create immutable proof-of-existence records for agent outputs, receipts, and attestations. Use GET /api/v1/notarize/verify to validate known hashes.",
   },
@@ -51,6 +51,12 @@ const spec = {
                     description:
                       "Recipient address (0x...). Defaults to minter address.",
                   },
+                  chain: {
+                    type: "string",
+                    enum: ["abstract", "base"],
+                    default: "abstract",
+                    description: "Target chain for notarization.",
+                  },
                 },
               },
             },
@@ -71,6 +77,7 @@ const spec = {
                     timestamp: { type: "string", format: "date-time" },
                     explorerUrl: { type: "string", format: "uri" },
                     tokenUrl: { type: "string", format: "uri" },
+                    chain: { type: "string", enum: ["abstract", "base"] },
                   },
                 },
               },

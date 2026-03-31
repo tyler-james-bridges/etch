@@ -6,13 +6,29 @@ import {
   toHex,
   parseEventLogs,
   type Hex,
-} from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { abstract } from "viem/chains";
-import { ETCH_ADDRESS, ETCH_ABI } from "@/lib/contract";
-import { generateEtchMetadata } from "@/lib/art-svg";
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { abstract, base } from 'viem/chains';
+import { ETCH_ABI } from '@/lib/contract';
+import { generateEtchMetadata } from '@/lib/art-svg';
 
-const RPC_URL = "https://api.mainnet.abs.xyz";
+const DEFAULT_ABSTRACT_ETCH = '0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C' as const;
+const DEFAULT_BASE_ETCH = '0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459' as const;
+
+const CHAIN_CONFIG = {
+  abstract: {
+    chain: abstract,
+    rpcUrl: 'https://api.mainnet.abs.xyz',
+    etchAddress: (process.env.ETCH_ADDRESS_ABSTRACT || DEFAULT_ABSTRACT_ETCH) as Hex,
+    explorerTxBase: 'https://abscan.org/tx/',
+  },
+  base: {
+    chain: base,
+    rpcUrl: 'https://mainnet.base.org',
+    etchAddress: (process.env.ETCH_ADDRESS_BASE || DEFAULT_BASE_ETCH) as Hex,
+    explorerTxBase: 'https://basescan.org/tx/',
+  },
+} as const;
 
 /** Map notarization type string to contract tokenType index */
 const NOTARIZE_TYPE_MAP: Record<string, number> = {
@@ -22,9 +38,10 @@ const NOTARIZE_TYPE_MAP: Record<string, number> = {
 
 export interface NotarizeInput {
   data: string;
-  type?: "receipt" | "attestation";
+  type?: 'receipt' | 'attestation';
   soulbound?: boolean;
   to?: string;
+  chain?: 'abstract' | 'base';
 }
 
 export interface NotarizeResult {
@@ -35,6 +52,7 @@ export interface NotarizeResult {
   timestamp: string;
   explorerUrl: string;
   tokenUrl: string;
+  chain: 'abstract' | 'base';
 }
 
 export function computeDataHash(data: string): Hex {
@@ -46,63 +64,63 @@ export async function mintNotarizedToken(
   recipient: Hex,
   privateKey: Hex
 ): Promise<NotarizeResult> {
+  const targetChain = input.chain || 'abstract';
+  const cfg = CHAIN_CONFIG[targetChain];
+
   const account = privateKeyToAccount(privateKey);
 
   const publicClient = createPublicClient({
-    chain: abstract,
-    transport: http(RPC_URL),
+    chain: cfg.chain,
+    transport: http(cfg.rpcUrl),
   });
 
   const walletClient = createWalletClient({
     account,
-    chain: abstract,
-    transport: http(RPC_URL),
+    chain: cfg.chain,
+    transport: http(cfg.rpcUrl),
   });
 
-  const tokenType = NOTARIZE_TYPE_MAP[input.type || "receipt"];
+  const tokenType = NOTARIZE_TYPE_MAP[input.type || 'receipt'];
   const soulbound = input.soulbound ?? true;
   const dataHash = computeDataHash(input.data);
-  const typeLabel = input.type === "attestation" ? "Attestation" : "Receipt";
+  const typeLabel = input.type === 'attestation' ? 'Attestation' : 'Receipt';
 
   const name = `Notarized ${typeLabel}`;
   const description = `Onchain notarization of data. Verify with dataHash: ${dataHash}`;
 
-  // Step 1: Mint with temp metadata
   const tempMetadata = {
     name,
     description,
     attributes: [
-      { trait_type: "Type", value: typeLabel },
-      { trait_type: "Soulbound", value: soulbound ? "Yes" : "No" },
-      { trait_type: "dataHash", value: dataHash },
+      { trait_type: 'Type', value: typeLabel },
+      { trait_type: 'Soulbound', value: soulbound ? 'Yes' : 'No' },
+      { trait_type: 'dataHash', value: dataHash },
     ],
   };
 
-  const tempUri = `data:application/json;base64,${Buffer.from(JSON.stringify(tempMetadata)).toString("base64")}`;
+  const tempUri = `data:application/json;base64,${Buffer.from(JSON.stringify(tempMetadata)).toString('base64')}`;
 
   const hash = await walletClient.writeContract({
-    address: ETCH_ADDRESS,
+    address: cfg.etchAddress,
     abi: ETCH_ABI,
-    functionName: "etch",
+    functionName: 'etch',
     args: [recipient, tempUri, tokenType, soulbound],
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-  // Step 2: Parse tokenId from Etched event
   const etchedEvents = parseEventLogs({
     abi: ETCH_ABI,
-    eventName: "Etched",
+    eventName: 'Etched',
     logs: receipt.logs,
   });
 
   if (etchedEvents.length === 0) {
-    throw new Error("Mint succeeded but could not parse tokenId from logs");
+    throw new Error('Mint succeeded but could not parse tokenId from logs');
   }
 
   const mintedTokenId = Number(etchedEvents[0].args.tokenId);
 
-  // Step 3: Generate final metadata with art and dataHash attribute
   const metadataJson = generateEtchMetadata(
     mintedTokenId,
     tokenType,
@@ -111,18 +129,16 @@ export async function mintNotarizedToken(
     soulbound
   );
 
-  // Inject dataHash attribute into the generated metadata
   const metadata = JSON.parse(metadataJson);
-  metadata.attributes.push({ trait_type: "dataHash", value: dataHash });
+  metadata.attributes.push({ trait_type: 'dataHash', value: dataHash });
   const finalMetadataJson = JSON.stringify(metadata);
 
-  const finalUri = `data:application/json;base64,${Buffer.from(finalMetadataJson).toString("base64")}`;
+  const finalUri = `data:application/json;base64,${Buffer.from(finalMetadataJson).toString('base64')}`;
 
-  // Step 4: Update token URI with final art + dataHash
   const updateHash = await walletClient.writeContract({
-    address: ETCH_ADDRESS,
+    address: cfg.etchAddress,
     abi: ETCH_ABI,
-    functionName: "setTokenURI",
+    functionName: 'setTokenURI',
     args: [BigInt(mintedTokenId), finalUri],
   });
 
@@ -136,7 +152,8 @@ export async function mintNotarizedToken(
     updateTxHash: updateHash,
     dataHash,
     timestamp,
-    explorerUrl: `https://abscan.org/tx/${hash}`,
+    explorerUrl: `${cfg.explorerTxBase}${hash}`,
     tokenUrl: `https://etch.ack-onchain.dev/etch/${mintedTokenId}`,
+    chain: targetChain,
   };
 }

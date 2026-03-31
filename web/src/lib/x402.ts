@@ -4,11 +4,14 @@ import { ExactEvmScheme } from '@x402/evm/exact/server';
 import type { Network } from '@x402/core/types';
 import { NextRequest, NextResponse } from 'next/server';
 
-export const ABSTRACT_FACILITATOR_URL = 'https://facilitator.x402.abs.xyz';
-export const NETWORK: Network = 'eip155:2741';
+export const ABSTRACT_NETWORK: Network = 'eip155:2741';
+export const BASE_NETWORK: Network = 'eip155:8453';
 
-// Abstract mainnet USDC.e (same token used across existing apps)
-export const USDC_ADDRESS = '0x84A71ccD554Cc1b02749b35d22F684CC8ec987e1';
+export const X402_FACILITATOR_URL =
+  process.env.X402_FACILITATOR_URL || 'https://facilitator.x402.abs.xyz';
+
+export const ABSTRACT_USDC = '0x84A71ccD554Cc1b02749b35d22F684CC8ec987e1';
+export const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 export const USDC_DECIMALS = 6;
 
 const DEFAULT_PAY_TO =
@@ -19,16 +22,12 @@ let _server: x402ResourceServer | null = null;
 
 function getServer(): x402ResourceServer {
   if (!_server) {
-    const facilitator = new HTTPFacilitatorClient({
-      url: ABSTRACT_FACILITATOR_URL,
-    });
-
     const scheme = new ExactEvmScheme();
     scheme.registerMoneyParser(async (amount: number, network: string) => {
-      if (network === NETWORK) {
+      if (network === ABSTRACT_NETWORK) {
         return {
           amount: Math.round(amount * 1e6).toString(),
-          asset: USDC_ADDRESS,
+          asset: ABSTRACT_USDC,
           extra: {
             name: 'Bridged USDC (Stargate)',
             version: '2',
@@ -36,20 +35,32 @@ function getServer(): x402ResourceServer {
           },
         };
       }
+
+      if (network === BASE_NETWORK) {
+        return {
+          amount: Math.round(amount * 1e6).toString(),
+          asset: BASE_USDC,
+          extra: {
+            name: 'USD Coin',
+            version: '2',
+            decimals: USDC_DECIMALS,
+          },
+        };
+      }
+
       return null;
     });
 
-    _server = new x402ResourceServer(facilitator).register(
-      'eip155:*' as Network,
-      scheme
-    );
+    _server = new x402ResourceServer(
+      new HTTPFacilitatorClient({ url: X402_FACILITATOR_URL })
+    )
+      .register(ABSTRACT_NETWORK, scheme)
+      .register(BASE_NETWORK, scheme);
   }
+
   return _server;
 }
 
-/**
- * Wrap a route in x402 payment protection.
- */
 export function withPayment<T = unknown>(
   handler: (request: NextRequest) => Promise<NextResponse<T>>,
   price: string,
@@ -65,7 +76,13 @@ export function withPayment<T = unknown>(
           scheme: 'exact',
           payTo: payTo || DEFAULT_PAY_TO,
           price,
-          network: NETWORK,
+          network: ABSTRACT_NETWORK,
+        },
+        {
+          scheme: 'exact',
+          payTo: payTo || DEFAULT_PAY_TO,
+          price,
+          network: BASE_NETWORK,
         },
       ],
       description,
