@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPayment } from '@/lib/x402';
+import { withPaymentForChain } from '@/lib/x402';
 
 async function handler(_request: NextRequest) {
   return NextResponse.json({ ok: true, ts: new Date().toISOString() });
 }
 
 export async function GET(request: NextRequest) {
-  const gated = withPayment(
+  const gated = withPaymentForChain(
+    'abstract',
     handler,
     '0.01',
     'ETCH x402 ping paid endpoint for payment-path diagnostics',

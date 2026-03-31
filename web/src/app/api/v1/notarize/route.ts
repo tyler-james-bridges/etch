@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAddress, type Hex } from "viem";
 import { mintNotarizedToken } from "@/lib/notarize";
 import type { NotarizeInput } from "@/lib/notarize";
-import { withPayment } from "@/lib/x402";
+import { withPaymentForChain } from "@/lib/x402";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 
 // Rate limiting: max 3 per recipient per hour
@@ -156,7 +156,16 @@ const notarizeExtensions = declareDiscoveryExtension({
 });
 
 export async function POST(request: NextRequest) {
-  const gated = withPayment<unknown>(
+  let requestedChain: 'abstract' | 'base' = 'abstract';
+  try {
+    const probe = await request.clone().json();
+    if (probe?.chain === 'base') requestedChain = 'base';
+  } catch {
+    // ignore body parse errors here, handler will return 400
+  }
+
+  const gated = withPaymentForChain<unknown>(
+    requestedChain,
     handler,
     '0.01',
     'ETCH notarization: hash data and mint onchain proof token',
