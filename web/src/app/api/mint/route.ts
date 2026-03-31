@@ -55,6 +55,13 @@ function checkApiKey(request: NextRequest): boolean {
   return parts.length === 2 && parts[0] === "Bearer" && parts[1] === requiredKey;
 }
 
+function normalizePrivateKey(input?: string): Hex | null {
+  if (!input) return null;
+  const trimmed = input.trim().replace(/^['"]|['"]$/g, "");
+  const normalized = trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
+  return /^0x[0-9a-fA-F]{64}$/.test(normalized) ? (normalized as Hex) : null;
+}
+
 export async function POST(request: NextRequest) {
   if (!checkApiKey(request)) {
     return NextResponse.json(
@@ -63,7 +70,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const privateKey = process.env.ETCH_MINTER_PRIVATE_KEY;
+  const privateKey = normalizePrivateKey(process.env.ETCH_MINTER_PRIVATE_KEY);
   if (!privateKey) {
     return NextResponse.json(
       { error: "Minter not configured" },
@@ -116,7 +123,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const account = privateKeyToAccount(privateKey as Hex);
+    const account = privateKeyToAccount(privateKey);
 
     const publicClient = createPublicClient({
       chain: cfg.chain,
