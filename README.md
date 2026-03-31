@@ -166,6 +166,27 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node server.
 | `/.well-known/x402` | x402 discovery metadata |
 | `/openapi.json` | OpenAPI schema (includes payment metadata) |
 
+## Notarize API Quickstart
+
+### Abstract (default)
+```bash
+curl -X POST https://etch.ack-onchain.dev/api/v1/notarize \
+  -H "content-type: application/json" \
+  -d '{"data":"hello from abstract","type":"receipt","chain":"abstract"}'
+```
+
+### Base
+```bash
+curl -X POST https://etch.ack-onchain.dev/api/v1/notarize \
+  -H "content-type: application/json" \
+  -d '{"data":"hello from base","type":"receipt","chain":"base"}'
+```
+
+### Verify (free)
+```bash
+curl "https://etch.ack-onchain.dev/api/v1/notarize/verify?dataHash=0x..."
+```
+
 ## x402 Paid API Status
 
 - Payment flow is live and verified in production (`402 -> paid replay -> 200`) on Abstract and Base.

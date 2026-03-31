@@ -215,6 +215,10 @@ export default async function TokenPage({
               <span className="font-bold uppercase text-sm">Storage</span>
               <span className="text-sm">{format}</span>
             </div>
+            <div className="p-4 flex justify-between items-center">
+              <span className="font-bold uppercase text-sm">Chain</span>
+              <span className="text-sm">Abstract</span>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -223,8 +227,8 @@ export default async function TokenPage({
               target="_blank"
               rel="noopener noreferrer"
               className="border-2 border-black px-4 py-2 text-sm no-underline hover:bg-black hover:text-white transition-colors"
-            >
-              View on Abscan
+>
+              View on Abscan (Abstract)
             </a>
             <a
               href={`/api/metadata/${tokenIdStr}`}
