@@ -126,28 +126,34 @@ export async function mintNotarizedToken(
 
   const mintedTokenId = Number(etchedEvents[0].args.tokenId);
 
-  const metadataJson = generateEtchMetadata(
-    mintedTokenId,
-    tokenType,
-    name,
-    description,
-    soulbound
-  );
+  let updateHash = hash;
 
-  const metadata = JSON.parse(metadataJson);
-  metadata.attributes.push({ trait_type: 'dataHash', value: dataHash });
-  const finalMetadataJson = JSON.stringify(metadata);
+  // Base deployment currently reverts on post-mint setTokenURI for freshly minted token IDs.
+  // Keep notarization successful with single-tx mint path while preserving dataHash in temp metadata.
+  if (targetChain === 'abstract') {
+    const metadataJson = generateEtchMetadata(
+      mintedTokenId,
+      tokenType,
+      name,
+      description,
+      soulbound
+    );
 
-  const finalUri = `data:application/json;base64,${Buffer.from(finalMetadataJson).toString('base64')}`;
+    const metadata = JSON.parse(metadataJson);
+    metadata.attributes.push({ trait_type: 'dataHash', value: dataHash });
+    const finalMetadataJson = JSON.stringify(metadata);
 
-  const updateHash = await walletClient.writeContract({
-    address: cfg.etchAddress,
-    abi: ETCH_ABI,
-    functionName: 'setTokenURI',
-    args: [BigInt(mintedTokenId), finalUri],
-  });
+    const finalUri = `data:application/json;base64,${Buffer.from(finalMetadataJson).toString('base64')}`;
 
-  await publicClient.waitForTransactionReceipt({ hash: updateHash });
+    updateHash = await walletClient.writeContract({
+      address: cfg.etchAddress,
+      abi: ETCH_ABI,
+      functionName: 'setTokenURI',
+      args: [BigInt(mintedTokenId), finalUri],
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash: updateHash });
+  }
 
   const timestamp = new Date().toISOString();
 
