@@ -10,7 +10,7 @@ import {
   useSwitchChain,
 } from "wagmi";
 import { injected } from "wagmi/connectors";
-import { abstract } from "wagmi/chains";
+import { abstract, base } from "wagmi/chains";
 import { generateEtchSvg } from "@/lib/art-svg";
 import {
   ETCH_ADDRESS,
@@ -43,6 +43,21 @@ const REGISTER_8004_DEFAULTS: Record<number, boolean> = {
   4: false,
 };
 
+const ETCH_ADDRESS_BY_CHAIN = {
+  abstract: "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C",
+  base: "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459",
+} as const;
+
+const EXPLORER_BY_CHAIN = {
+  abstract: "https://abscan.org",
+  base: "https://basescan.org",
+} as const;
+
+const OPENSEA_CHAIN_BY_CHAIN = {
+  abstract: "abstract",
+  base: "base",
+} as const;
+
 function hashCode(str: string): number {
   let h = 5381;
   for (let i = 0; i < str.length; i++) {
@@ -64,6 +79,7 @@ type CreateStep =
 interface CreateResult {
   tokenId: number;
   mintTxHash: string;
+  chain: "abstract" | "base";
   registerTxHash?: string;
   agentId?: string;
 }
@@ -78,6 +94,7 @@ export default function CreatePage() {
   const [description, setDescription] = useState("");
   const [tokenType, setTokenType] = useState(0);
   const [soulbound, setSoulbound] = useState(true);
+  const [mintChain, setMintChain] = useState<"abstract" | "base">("abstract");
   const [register8004, setRegister8004] = useState(true);
   const [step, setStep] = useState<CreateStep>("idle");
   const [result, setResult] = useState<CreateResult | null>(null);
@@ -101,8 +118,9 @@ export default function CreatePage() {
   const handleTokenTypeChange = useCallback((newType: number) => {
     setTokenType(newType);
     setSoulbound(SOULBOUND_DEFAULTS[newType] ?? true);
-    setRegister8004(REGISTER_8004_DEFAULTS[newType] ?? false);
-  }, []);
+    const shouldRegister = REGISTER_8004_DEFAULTS[newType] ?? false;
+    setRegister8004(mintChain === "abstract" ? shouldRegister : false);
+  }, [mintChain]);
 
   // Handle register tx confirmation
   const handleRegisterConfirmed = useCallback(
@@ -163,6 +181,7 @@ export default function CreatePage() {
           description: description.trim(),
           tokenType,
           soulbound,
+          chain: mintChain,
         }),
       });
 
@@ -176,6 +195,7 @@ export default function CreatePage() {
       const mintResult: CreateResult = {
         tokenId: data.tokenId,
         mintTxHash: data.txHash,
+        chain: (data.chain || mintChain) as "abstract" | "base",
       };
       setResult(mintResult);
 
@@ -252,6 +272,9 @@ export default function CreatePage() {
   // Success state
   if (step === "success" && result) {
     const has8004 = !!result.registerTxHash;
+    const explorerBase = EXPLORER_BY_CHAIN[result.chain];
+    const etchAddress = ETCH_ADDRESS_BY_CHAIN[result.chain];
+    const openseaChain = OPENSEA_CHAIN_BY_CHAIN[result.chain];
     return (
       <div className="max-w-xl mx-auto py-12 space-y-6">
         <div className="text-center">
@@ -279,23 +302,23 @@ export default function CreatePage() {
               etch.ack-onchain.dev/etch/{result.tokenId}
             </a>
             <a
-              href={`https://abscan.org/token/${ETCH_ADDRESS}?a=${result.tokenId}`}
+              href={`${explorerBase}/token/${etchAddress}?a=${result.tokenId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block underline break-all"
             >
-              Abscan Token
+              Explorer Token ({result.chain})
             </a>
             <a
-              href={`https://abscan.org/tx/${result.mintTxHash}`}
+              href={`${explorerBase}/tx/${result.mintTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block underline break-all"
             >
-              Abscan Tx (mint)
+              Explorer Tx (mint)
             </a>
             <a
-              href={`https://opensea.io/item/abstract/${ETCH_ADDRESS}/${result.tokenId}`}
+              href={`https://opensea.io/item/${openseaChain}/${etchAddress}/${result.tokenId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block underline break-all"
@@ -450,6 +473,38 @@ export default function CreatePage() {
           )}
         </div>
 
+        <div>
+          <label className="block text-xs uppercase tracking-widest font-bold mb-2">
+            Chain
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["abstract", "Abstract"],
+              ["base", "Base"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => {
+                  setMintChain(value);
+                  if (value === "base") setRegister8004(false);
+                  if (value === "abstract") {
+                    const shouldRegister = REGISTER_8004_DEFAULTS[tokenType] ?? false;
+                    setRegister8004(shouldRegister);
+                  }
+                }}
+                disabled={isProcessing}
+                className={`border-2 px-3 py-1.5 text-xs font-bold transition-colors ${
+                  mintChain === value
+                    ? "border-black bg-black text-white"
+                    : "border-black hover:bg-gray-100"
+                } disabled:opacity-50`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -475,19 +530,23 @@ export default function CreatePage() {
               id="register8004"
               checked={register8004}
               onChange={(e) => setRegister8004(e.target.checked)}
-              disabled={isProcessing}
+              disabled={isProcessing || mintChain !== "abstract"}
               className="w-4 h-4 border-2 border-black accent-black"
             />
             <label htmlFor="register8004" className="text-sm">
               <span className="font-bold">Register as ERC-8004 Agent</span>
             </label>
           </div>
-          {register8004 && (
+          {mintChain !== "abstract" ? (
+            <p className="text-xs text-gray-400 mt-2 ml-7">
+              ERC-8004 registration is currently Abstract-only.
+            </p>
+          ) : register8004 ? (
             <p className="text-xs text-gray-400 mt-2 ml-7">
               Creates an onchain agent identity on the ERC-8004 registry. Your
               wallet becomes a registered agent.
             </p>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -543,8 +602,8 @@ export default function CreatePage() {
       <p className="text-xs text-gray-400 text-center">
         {isConnected
           ? register8004
-            ? `Minting to ${address}. ETCH is free. Registration requires a wallet signature.`
-            : `Minting to ${address}. Zero gas.`
+            ? `Minting on ${mintChain} to ${address}. ETCH minting is free. Registration requires a wallet signature and gas.`
+            : `Minting on ${mintChain} to ${address}. ETCH minting is free.`
           : "Connect wallet to mint. Minting is free. Optional agent registration is a wallet tx and requires gas."}
       </p>
     </div>

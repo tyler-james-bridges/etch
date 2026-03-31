@@ -8,11 +8,22 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { abstract } from "viem/chains";
-import { ETCH_ADDRESS, ETCH_ABI } from "@/lib/contract";
+import { abstract, base } from "viem/chains";
+import { ETCH_ABI } from "@/lib/contract";
 import { generateEtchMetadata } from "@/lib/art-svg";
 
-const RPC_URL = "https://api.mainnet.abs.xyz";
+const CHAIN_CONFIG = {
+  abstract: {
+    chain: abstract,
+    rpcUrl: "https://api.mainnet.abs.xyz",
+    etchAddress: (process.env.ETCH_ADDRESS_ABSTRACT || "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C").trim() as Hex,
+  },
+  base: {
+    chain: base,
+    rpcUrl: "https://mainnet.base.org",
+    etchAddress: (process.env.ETCH_ADDRESS_BASE || "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459").trim() as Hex,
+  },
+} as const;
 
 // Rate limiting: max 3 mints per address per hour
 const mintTimestamps = new Map<string, number[]>();
@@ -66,6 +77,7 @@ export async function POST(request: NextRequest) {
     description: string;
     tokenType: number;
     soulbound: boolean;
+    chain?: "abstract" | "base";
   };
 
   try {
@@ -75,6 +87,8 @@ export async function POST(request: NextRequest) {
   }
 
   const { to, name, description, tokenType, soulbound } = body;
+  const targetChain = body.chain === "base" ? "base" : "abstract";
+  const cfg = CHAIN_CONFIG[targetChain];
 
   if (!to || !isAddress(to)) {
     return NextResponse.json(
@@ -105,14 +119,14 @@ export async function POST(request: NextRequest) {
     const account = privateKeyToAccount(privateKey as Hex);
 
     const publicClient = createPublicClient({
-      chain: abstract,
-      transport: http(RPC_URL),
+      chain: cfg.chain,
+      transport: http(cfg.rpcUrl),
     });
 
     const walletClient = createWalletClient({
       account,
-      chain: abstract,
-      transport: http(RPC_URL),
+      chain: cfg.chain,
+      transport: http(cfg.rpcUrl),
     });
 
     const typeLabels = ["Identity", "Attestation", "Credential", "Receipt", "Pass"];
@@ -131,7 +145,7 @@ export async function POST(request: NextRequest) {
     const tempMetadataURI = `data:application/json;base64,${tempMetadataBase64}`;
 
     const hash = await walletClient.writeContract({
-      address: ETCH_ADDRESS,
+      address: cfg.etchAddress,
       abi: ETCH_ABI,
       functionName: "etch",
       args: [to as `0x${string}`, tempMetadataURI, tokenType, soulbound],
@@ -168,14 +182,18 @@ export async function POST(request: NextRequest) {
     const correctMetadataURI = `data:application/json;base64,${metadataBase64}`;
 
     // Step 4: Update token URI with correct art
-    const updateHash = await walletClient.writeContract({
-      address: ETCH_ADDRESS,
-      abi: ETCH_ABI,
-      functionName: "setTokenURI",
-      args: [BigInt(mintedTokenId), correctMetadataURI],
-    });
+    let updateHash = hash;
 
-    await publicClient.waitForTransactionReceipt({ hash: updateHash });
+    if (targetChain === "abstract") {
+      updateHash = await walletClient.writeContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "setTokenURI",
+        args: [BigInt(mintedTokenId), correctMetadataURI],
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: updateHash });
+    }
 
     recordMint(to);
 
@@ -183,6 +201,7 @@ export async function POST(request: NextRequest) {
       tokenId: mintedTokenId,
       txHash: hash,
       updateTxHash: updateHash,
+      chain: targetChain,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Transaction failed";
