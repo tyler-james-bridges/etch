@@ -15,17 +15,22 @@ import { generateEtchMetadata } from '@/lib/art-svg';
 const DEFAULT_ABSTRACT_ETCH = '0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C' as const;
 const DEFAULT_BASE_ETCH = '0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459' as const;
 
+const normalizeAddress = (input: string | undefined, fallback: Hex): Hex => {
+  const v = (input || fallback).trim();
+  return v as Hex;
+};
+
 const CHAIN_CONFIG = {
   abstract: {
     chain: abstract,
     rpcUrl: 'https://api.mainnet.abs.xyz',
-    etchAddress: (process.env.ETCH_ADDRESS_ABSTRACT || DEFAULT_ABSTRACT_ETCH) as Hex,
+    etchAddress: normalizeAddress(process.env.ETCH_ADDRESS_ABSTRACT, DEFAULT_ABSTRACT_ETCH),
     explorerTxBase: 'https://abscan.org/tx/',
   },
   base: {
     chain: base,
     rpcUrl: 'https://mainnet.base.org',
-    etchAddress: (process.env.ETCH_ADDRESS_BASE || DEFAULT_BASE_ETCH) as Hex,
+    etchAddress: normalizeAddress(process.env.ETCH_ADDRESS_BASE, DEFAULT_BASE_ETCH),
     explorerTxBase: 'https://basescan.org/tx/',
   },
 } as const;
