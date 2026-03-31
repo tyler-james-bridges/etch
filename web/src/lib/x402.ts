@@ -30,10 +30,9 @@ function getServer(): x402ResourceServer {
           amount: Math.round(amount * 1e6).toString(),
           asset: USDC_ADDRESS,
           extra: {
-            name: 'USDC',
+            name: 'Bridged USDC (Stargate)',
             version: '2',
             decimals: USDC_DECIMALS,
-            facilitatorUrl: ABSTRACT_FACILITATOR_URL,
           },
         };
       }
