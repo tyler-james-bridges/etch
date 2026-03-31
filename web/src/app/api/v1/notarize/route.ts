@@ -26,8 +26,15 @@ function recordNotarize(address: string): void {
   notarizeTimestamps.set(key, timestamps);
 }
 
+function normalizePrivateKey(input?: string): Hex | null {
+  if (!input) return null;
+  const trimmed = input.trim().replace(/^['"]|['"]$/g, '');
+  const normalized = trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
+  return /^0x[0-9a-fA-F]{64}$/.test(normalized) ? (normalized as Hex) : null;
+}
+
 async function handler(request: NextRequest) {
-  const privateKey = process.env.ETCH_MINTER_PRIVATE_KEY;
+  const privateKey = normalizePrivateKey(process.env.ETCH_MINTER_PRIVATE_KEY);
   if (!privateKey) {
     return NextResponse.json({ error: "Minter not configured" }, { status: 500 });
   }
@@ -71,7 +78,7 @@ async function handler(request: NextRequest) {
     const result = await mintNotarizedToken(
       body,
       recipient as Hex,
-      privateKey as Hex
+      privateKey
     );
 
     recordNotarize(recipient);

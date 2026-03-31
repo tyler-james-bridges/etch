@@ -9,11 +9,12 @@
     "test:x402-smoke": "npx tsx scripts/x402-e2e-smoke.mts"
   },
   "dependencies": {
+    "@coinbase/x402": "^2.1.0",
     "@tanstack/react-query": "^5.95.2",
-    "@x402/core": "^2.8.0",
-    "@x402/evm": "^2.8.0",
-    "@x402/fetch": "^2.8.0",
-    "@x402/next": "^2.8.0",
+    "@x402/core": "^2.5.0",
+    "@x402/evm": "^2.5.0",
+    "@x402/fetch": "^2.6.0",
+    "@x402/next": "^2.5.0",
     "next": "16.2.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
