@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:x402-smoke": "npx tsx scripts/x402-e2e-smoke.mts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.95.2",

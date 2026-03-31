@@ -3,6 +3,7 @@ import { isAddress, type Hex } from "viem";
 import { mintNotarizedToken } from "@/lib/notarize";
 import type { NotarizeInput } from "@/lib/notarize";
 import { withPayment } from "@/lib/x402";
+import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 
 // Rate limiting: max 3 per recipient per hour
 const notarizeTimestamps = new Map<string, number[]>();
@@ -83,12 +84,64 @@ async function handler(request: NextRequest) {
   }
 }
 
+const notarizeExtensions = declareDiscoveryExtension({
+  bodyType: "json",
+  input: {
+    data: "The UTF-8 string data to notarize",
+    type: "receipt",
+    soulbound: true,
+  },
+  inputSchema: {
+    type: "object",
+    required: ["data"],
+    properties: {
+      data: { type: "string", description: "The UTF-8 string data to notarize." },
+      type: {
+        type: "string",
+        enum: ["receipt", "attestation"],
+        description: "Token type for the notarization.",
+      },
+      soulbound: {
+        type: "boolean",
+        description: "Whether the token is non-transferable.",
+      },
+      to: {
+        type: "string",
+        description: "Recipient address (0x...). Defaults to minter address.",
+      },
+    },
+  },
+  output: {
+    example: {
+      tokenId: 42,
+      txHash: "0xabc...",
+      dataHash: "0xdef...",
+      timestamp: "2026-01-01T00:00:00Z",
+      explorerUrl: "https://abscan.org/tx/0xabc...",
+      tokenUrl: "https://etch.ack-onchain.dev/etch/42",
+    },
+    schema: {
+      type: "object",
+      properties: {
+        tokenId: { type: "integer" },
+        txHash: { type: "string" },
+        updateTxHash: { type: "string" },
+        dataHash: { type: "string" },
+        timestamp: { type: "string" },
+        explorerUrl: { type: "string" },
+        tokenUrl: { type: "string" },
+      },
+    },
+  },
+});
+
 export async function POST(request: NextRequest) {
-  const gated = withPayment<any>(
+  const gated = withPayment<unknown>(
     handler,
     '0.01',
     'ETCH notarization: hash data and mint onchain proof token',
-    process.env.ETCH_MINTER_ADDRESS
+    process.env.ETCH_MINTER_ADDRESS,
+    notarizeExtensions
   );
 
   return gated(request);

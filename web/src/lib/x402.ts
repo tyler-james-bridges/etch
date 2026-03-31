@@ -55,7 +55,8 @@ export function withPayment<T = unknown>(
   handler: (request: NextRequest) => Promise<NextResponse<T>>,
   price: string,
   description: string,
-  payTo?: string
+  payTo?: string,
+  extensions?: Record<string, unknown>
 ) {
   return withX402(
     handler,
@@ -70,6 +71,7 @@ export function withPayment<T = unknown>(
       ],
       description,
       mimeType: 'application/json',
+      ...(extensions ? { extensions } : {}),
     },
     getServer()
   );

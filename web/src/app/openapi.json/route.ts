@@ -6,31 +6,22 @@ const spec = {
     title: "ETCH Notarization API",
     version: "1.0.0",
     description: "Onchain notarization on Abstract via ETCH NFTs.",
-    "x-guidance": "Use POST /api/v1/notarize to create immutable proof-of-existence records for agent outputs, receipts, and attestations. Use GET /api/v1/notarize/verify to validate known hashes.",
+    "x-guidance":
+      "Use POST /api/v1/notarize to create immutable proof-of-existence records for agent outputs, receipts, and attestations. Use GET /api/v1/notarize/verify to validate known hashes.",
   },
   servers: [{ url: "https://etch.ack-onchain.dev" }],
-  extensions: {
-    bazaar: {
-      schema: {
-        properties: {
-          input: { type: "object" },
-          output: { type: "object" }
-        }
-      }
-    }
-  },
+  security: [{ x402: [] }],
   paths: {
     "/api/v1/notarize": {
       post: {
         operationId: "notarize",
-        "x-auth-mode": "x402",
         summary: "Notarize data onchain",
         description:
           "Computes keccak256 of the provided data, mints an ETCH token with the hash embedded in metadata, and returns proof.",
         "x-payment-info": {
           pricingMode: "fixed",
           price: "0.010000",
-          protocols: ["x402"]
+          protocols: ["x402"],
         },
         requestBody: {
           required: true,
@@ -101,17 +92,18 @@ const spec = {
     "/api/v1/notarize/verify": {
       get: {
         operationId: "verifyNotarization",
-        "x-auth-mode": "none",
         summary: "Verify a notarization by dataHash",
         description:
           "Check whether a given dataHash has been notarized onchain.",
+        security: [],
         parameters: [
           {
             name: "dataHash",
             in: "query",
             required: true,
             schema: { type: "string", pattern: "^0x[0-9a-fA-F]{64}$" },
-            description: "The keccak256 hash to verify (0x-prefixed, 32 bytes).",
+            description:
+              "The keccak256 hash to verify (0x-prefixed, 32 bytes).",
           },
         ],
         responses: {
@@ -139,7 +131,16 @@ const spec = {
       },
     },
   },
-  components: {},
+  components: {
+    securitySchemes: {
+      x402: {
+        type: "http",
+        scheme: "bearer",
+        description:
+          "x402 micropayment protocol. Send a 402 challenge response with USDC payment proof.",
+      },
+    },
+  },
 };
 
 export async function GET() {
