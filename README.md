@@ -160,7 +160,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node server.
 | `/api/metadata/[tokenId]` | ERC-721 metadata JSON with embedded art |
 | `/api/agent/[address]` | ERC-8004 agent URI for an address |
 | `/api/mint` | Server-side minting endpoint |
-| `/api/v1/notarize` | x402-paid notarization endpoint (`$0.01` USDC on Abstract) |
+| `/api/v1/notarize` | x402-paid notarization endpoint (`$0.01` USDC on Abstract or Base) |
 | `/api/v1/notarize/verify` | Free verification endpoint for data hash + token proof |
 | `/api/v1/x402-ping` | x402-paid diagnostics endpoint for payment-path checks |
 | `/.well-known/x402` | x402 discovery metadata |
@@ -168,10 +168,14 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node server.
 
 ## x402 Paid API Status
 
-- Payment flow is live and verified in production (`402 -> paid replay -> 200`).
-- Facilitator settlement and notarize mint/update tx receipts have been validated on Abstract.
+- Payment flow is live and verified in production (`402 -> paid replay -> 200`) on Abstract and Base.
+- Facilitator settlement and notarize tx receipts have been validated on both chains.
 - Discovery is available at `/.well-known/x402`.
 - Current pricing: `$0.01` USDC for `/api/v1/notarize`, free verify route.
+- Facilitators in use:
+  - Abstract: `https://facilitator.x402.abs.xyz`
+  - Base (primary): `https://facilitator.xpay.sh`
+  - Base (tested fallback): `https://facilitator.goplausible.xyz`
 
 ## Tech Stack
 
