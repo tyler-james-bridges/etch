@@ -6,7 +6,7 @@ Permanent onchain records on Abstract. Generative art. ERC-8004 agent identity. 
 npx etch-mcp
 ```
 
-**[etch.ack-onchain.dev](https://etch.ack-onchain.dev)** | **[npm](https://www.npmjs.com/package/etch-mcp)** | **[OpenSea](https://opensea.io/collection/etch-189154762)** | **[Contract](https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C#code)**
+**[etch.ack-onchain.dev](https://etch.ack-onchain.dev)** | **[npm](https://www.npmjs.com/package/etch-mcp)** | **[OpenSea](https://opensea.io/collection/etch-onchain)** | **[Contract](https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C#code)**
 
 ---
 
@@ -172,7 +172,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node server.
 
 - **Website**: [etch.ack-onchain.dev](https://etch.ack-onchain.dev)
 - **npm**: [etch-mcp](https://www.npmjs.com/package/etch-mcp)
-- **OpenSea**: [ETCH on Abstract](https://opensea.io/collection/etch-189154762)
+- **OpenSea**: [ETCH on Abstract](https://opensea.io/collection/etch-onchain)
 - **Abscan**: [Contract](https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C)
 - **Built by**: [ACK Protocol](https://ack-onchain.dev)
 

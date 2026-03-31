@@ -89,7 +89,7 @@ Returns: registration status, token ID, metadata URI.
 
 - **Website:** [etch.ack-onchain.dev](https://etch.ack-onchain.dev)
 - **GitHub:** [tyler-james-bridges/etch](https://github.com/tyler-james-bridges/etch)
-- **OpenSea:** [ETCH on Abstract](https://opensea.io/collection/etch-189154762)
+- **OpenSea:** [ETCH on Abstract](https://opensea.io/collection/etch-onchain)
 - **Built by:** [ACK Protocol](https://ack-onchain.dev)
 
 ## License
