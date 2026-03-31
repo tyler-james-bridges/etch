@@ -545,7 +545,7 @@ export default function CreatePage() {
           ? register8004
             ? `Minting to ${address}. ETCH is free. Registration requires a wallet signature.`
             : `Minting to ${address}. Zero gas.`
-          : "Connect wallet to mint. Zero gas, we cover it."}
+          : "Connect wallet to mint. Minting is free. Optional agent registration is a wallet tx and requires gas."}
       </p>
     </div>
   );
