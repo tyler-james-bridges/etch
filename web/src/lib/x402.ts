@@ -10,7 +10,7 @@ export const BASE_NETWORK: Network = 'eip155:8453';
 export const ABSTRACT_FACILITATOR_URL =
   process.env.X402_FACILITATOR_ABSTRACT || 'https://facilitator.x402.abs.xyz';
 export const BASE_FACILITATOR_URL =
-  process.env.X402_FACILITATOR_BASE || 'https://facilitator.x402.org';
+  process.env.X402_FACILITATOR_BASE || 'https://facilitator.x402.abs.xyz';
 
 export const ABSTRACT_USDC = '0x84A71ccD554Cc1b02749b35d22F684CC8ec987e1';
 export const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
