@@ -421,30 +421,24 @@ export default function CreatePage() {
             {address?.slice(0, 6)}...{address?.slice(-4)}
           </button>
         ) : (
-          <button
-            onClick={async () => {
-              const connector =
-                connectors.find((c) => c.id === "injected") ||
-                connectors.find((c) => c.name?.toLowerCase().includes("metamask")) ||
-                connectors[0];
-
-              if (!connector) {
-                setStep("error");
-                setErrorMessage("No wallet connector detected. Make sure a wallet extension is installed and unlocked.");
-                return;
-              }
-
-              try {
-                await connectAsync({ connector });
-              } catch (err: unknown) {
-                setStep("error");
-                setErrorMessage(err instanceof Error ? err.message : "Wallet connection failed");
-              }
-            }}
-            className="bg-[var(--foreground)] text-[var(--background)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-colors"
-          >
-            Connect Wallet
-          </button>
+          <div className="flex flex-wrap gap-2 justify-end">
+            {connectors.map((connector) => (
+              <button
+                key={connector.uid}
+                onClick={async () => {
+                  try {
+                    await connectAsync({ connector });
+                  } catch (err: unknown) {
+                    setStep("error");
+                    setErrorMessage(err instanceof Error ? err.message : "Wallet connection failed");
+                  }
+                }}
+                className="bg-[var(--foreground)] text-[var(--background)] px-3 py-1.5 text-xs font-bold hover:opacity-90 transition-colors"
+              >
+                {connector.name}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
