@@ -12,6 +12,38 @@ const spec = {
   servers: [{ url: "https://etch.ack-onchain.dev" }],
   security: [{ x402: [] }],
   paths: {
+    "/api/agent/{address}": {
+      get: {
+        operationId: "resolveAgent",
+        summary: "Resolve ERC-8004 agent URI",
+        description: "Returns an ERC-8004 registration document for an address on the selected chain.",
+        security: [],
+        parameters: [
+          {
+            name: "address",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "Wallet address (0x...).",
+          },
+          {
+            name: "chain",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["abstract", "base"], default: "abstract" },
+            description: "Target chain for resolution.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Agent URI document",
+          },
+          "404": {
+            description: "No identity token found for this address on the selected chain",
+          },
+        },
+      },
+    },
     "/api/v1/notarize": {
       post: {
         operationId: "notarize",

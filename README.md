@@ -1,6 +1,6 @@
 # ETCH
 
-Permanent onchain records on Abstract. Generative art. ERC-8004 agent identity. One click.
+Permanent onchain records on Abstract and Base. Generative art. ERC-8004 agent identity. One click.
 
 ```
 npx etch-mcp
@@ -16,7 +16,7 @@ ETCH mints typed, optionally soulbound ERC-721 tokens on Abstract with determini
 
 Agents use it via MCP. Humans use it via the web app. Both get an onchain record with unique art in seconds.
 
-**Create page** includes an ERC-8004 agent registration gateway. Connect wallet, fill in a name, click once, and walk away with an ETCH token and a registered onchain agent identity.
+**Create page** includes a chain-aware ERC-8004 agent registration gateway. Connect wallet, fill in a name, choose Abstract or Base, click once, and walk away with an ETCH token and a registered onchain agent identity on that chain.
 
 ## Token Types
 
@@ -64,7 +64,7 @@ Three tools:
 4. Toggle "Register as ERC-8004 Agent" (on by default for Identity)
 5. Click "Create Agent"
 
-Server mints the ETCH token for free. If 8004 is enabled, you sign one transaction to register on the identity registry (sub-cent gas on Abstract). Done. You have an onchain identity with generative art and an agent profile.
+Server mints the ETCH token for free. If 8004 is enabled, you sign one transaction to register on the identity registry for your selected chain (Abstract or Base). Done. You have an onchain identity with generative art and an agent profile.
 
 ## Generative Art
 
@@ -90,15 +90,21 @@ Web App (Next.js)     MCP Server (Node.js)
            |
            v
     Etch Contract (ERC-721)
-    Abstract Mainnet
+ Abstract Mainnet + Base Mainnet
            |
            v
-    ERC-8004 Identity Registry
+ ERC-8004 Identity Registry (per-chain)
 ```
 
-## Contract
+## Contracts
 
-**Etch** on Abstract mainnet: [`0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C`](https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C#code)
+**Etch (Abstract):** [`0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C`](https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C#code)
+
+**Etch (Base):** [`0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459`](https://basescan.org/address/0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459#code)
+
+**ERC-8004 Registry (Abstract):** [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://abscan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432#code)
+
+**ERC-8004 Registry (Base):** [`0x6A650549b4F0088e815e110aB169E5D9d313d0b6`](https://basescan.org/address/0x6A650549b4F0088e815e110aB169E5D9d313d0b6#code)
 
 - ERC-721 with ERC721Enumerable
 - 5 token types with optional soulbound enforcement
@@ -107,7 +113,7 @@ Web App (Next.js)     MCP Server (Node.js)
 - Authorized minter system (owner + allowlist)
 - Pause/unpause for emergency stops
 - No max supply cap
-- Verified on Abscan
+- Verified on Abscan and Basescan
 
 ## Project Structure
 
@@ -142,6 +148,10 @@ Environment variables for the web app:
 - `ETCH_MINTER_PRIVATE_KEY` -- Private key for server-side minting (must be owner/authorized minter)
 - `ETCH_MINTER_ADDRESS` -- Minter wallet address used as default pay-to/recipient in paid routes
 - `ETCH_MINT_API_KEY` -- Optional API key for mint endpoint auth
+- `ETCH_ADDRESS_ABSTRACT` -- Optional override for Abstract ETCH contract
+- `ETCH_ADDRESS_BASE` -- Optional override for Base ETCH contract
+- `IDENTITY_REGISTRY_ADDRESS_ABSTRACT` -- Optional override for Abstract ERC-8004 registry
+- `IDENTITY_REGISTRY_ADDRESS_BASE` -- Base ERC-8004 registry address
 
 ### MCP Server
 
@@ -158,7 +168,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node server.
 |-------|-------------|
 | `/api/art/[tokenId]` | Generative SVG art for a token |
 | `/api/metadata/[tokenId]` | ERC-721 metadata JSON with embedded art |
-| `/api/agent/[address]` | ERC-8004 agent URI for an address |
+| `/api/agent/[address]?chain=abstract|base` | ERC-8004 agent URI for an address on the selected chain |
 | `/api/mint` | Server-side minting endpoint |
 | `/api/v1/notarize` | x402-paid notarization endpoint (`$0.01` USDC on Abstract or Base) |
 | `/api/v1/notarize/verify` | Free verification endpoint for data hash + token proof |
@@ -204,7 +214,7 @@ curl "https://etch.ack-onchain.dev/api/v1/notarize/verify?dataHash=0x..."
 - **MCP Server**: Node.js, viem
 - **Web**: Next.js 15, TypeScript, Tailwind, wagmi
 - **Art**: Simplex noise, deterministic SVG generation
-- **Chain**: Abstract (ZK rollup on Ethereum, chain ID 2741)
+- **Chain**: Abstract (chain ID 2741) and Base (chain ID 8453)
 
 ## Links
 
