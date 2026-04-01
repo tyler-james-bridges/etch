@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   useAccount,
   useConnect,
@@ -9,7 +9,6 @@ import {
   useWaitForTransactionReceipt,
   useSwitchChain,
 } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { abstract, base } from "wagmi/chains";
 import { generateEtchSvg } from "@/lib/art-svg";
 import {
@@ -93,7 +92,7 @@ interface CreateResult {
 
 export default function CreatePage() {
   const { address, isConnected, chainId } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
 
@@ -108,6 +107,8 @@ export default function CreatePage() {
     const registry = REGISTRY_ADDRESS_BY_CHAIN[mintChain];
     return typeof registry === "string" && registry.length === 42 && registry.startsWith("0x");
   }, [mintChain]);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [step, setStep] = useState<CreateStep>("idle");
   const [result, setResult] = useState<CreateResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -421,7 +422,15 @@ export default function CreatePage() {
           </button>
         ) : (
           <button
-            onClick={() => connect({ connector: injected() })}
+            onClick={() => {
+              const connector = connectors[0];
+              if (!connector) {
+                setStep("error");
+                setErrorMessage("No injected wallet detected. Open in a wallet-enabled browser.");
+                return;
+              }
+              connect({ connector });
+            }}
             className="bg-[var(--foreground)] text-[var(--background)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-colors"
           >
             Connect Wallet
@@ -430,10 +439,12 @@ export default function CreatePage() {
       </div>
 
       {/* Art preview */}
-      <div
-        className="border-2 border-[var(--border)] w-full max-w-xl mx-auto overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
-        dangerouslySetInnerHTML={{ __html: previewSvg }}
-      />
+      {mounted && (
+        <div
+          className="border-2 border-[var(--border)] w-full max-w-xl mx-auto overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+          dangerouslySetInnerHTML={{ __html: previewSvg }}
+        />
+      )}
       <p className="text-xs text-[var(--muted-light)] text-center">
         Preview based on your wallet. Final art is unique to the token ID.
       </p>
