@@ -4,6 +4,7 @@ import {
   ETCH_ADDRESS,
   ETCH_ABI,
   IDENTITY_REGISTRY_ADDRESS,
+  IDENTITY_REGISTRY_ABI,
   publicClient,
 } from "@/lib/contract";
 
@@ -96,6 +97,19 @@ export async function GET(
       );
     }
 
+    let agentId: string | null = null;
+    try {
+      const onchainAgentId = await publicClient.readContract({
+        address: IDENTITY_REGISTRY_ADDRESS,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: "agentOf",
+        args: [address as `0x${string}`],
+      });
+      agentId = String(onchainAgentId);
+    } catch {
+      agentId = null;
+    }
+
     const agentURI = {
       type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
       name: tokenName,
@@ -106,7 +120,7 @@ export async function GET(
       active: true,
       registrations: [
         {
-          agentId: null,
+          agentId,
           agentRegistry: `eip155:2741:${IDENTITY_REGISTRY_ADDRESS}`,
         },
       ],
