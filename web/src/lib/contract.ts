@@ -2,10 +2,10 @@ import { createPublicClient, http, type Abi } from "viem";
 import { abstract, base } from "viem/chains";
 
 export const ETCH_ADDRESS_ABSTRACT =
-  (process.env.ETCH_ADDRESS_ABSTRACT || "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C") as `0x${string}`;
+  (process.env.ETCH_ADDRESS_ABSTRACT || "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C").trim() as `0x${string}`;
 
 export const ETCH_ADDRESS_BASE =
-  (process.env.ETCH_ADDRESS_BASE || "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459") as `0x${string}`;
+  (process.env.ETCH_ADDRESS_BASE || "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459").trim() as `0x${string}`;
 
 export const ETCH_ADDRESS = ETCH_ADDRESS_ABSTRACT;
 
@@ -114,10 +114,10 @@ export const ETCH_ABI = [
 ] as const satisfies Abi;
 
 export const IDENTITY_REGISTRY_ADDRESS_ABSTRACT =
-  (process.env.IDENTITY_REGISTRY_ADDRESS_ABSTRACT || "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432") as `0x${string}`;
+  (process.env.IDENTITY_REGISTRY_ADDRESS_ABSTRACT || "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432").trim() as `0x${string}`;
 
 export const IDENTITY_REGISTRY_ADDRESS_BASE =
-  (process.env.IDENTITY_REGISTRY_ADDRESS_BASE || "") as `0x${string}`;
+  (process.env.IDENTITY_REGISTRY_ADDRESS_BASE || "").trim() as `0x${string}`;
 
 export const IDENTITY_REGISTRY_ADDRESS = IDENTITY_REGISTRY_ADDRESS_ABSTRACT;
 
