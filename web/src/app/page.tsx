@@ -6,6 +6,7 @@ import {
 } from "@/lib/contract";
 import { CopyButton } from "@/components/CopyButton";
 import { generateEtchSvg } from "@/lib/art-svg";
+import { EtchWordmark } from "@/components/EtchWordmark";
 import Link from "next/link";
 
 export const revalidate = 30;
@@ -158,7 +159,7 @@ export default async function Home() {
     <div className="min-h-screen">
       {/* ---- NAV ---- */}
       <nav className="sticky top-0 z-50 bg-white border-b-2 border-black px-4 py-3 flex items-center justify-between">
-        <span className="text-xl font-bold tracking-tight">ETCH</span>
+        <EtchWordmark size="sm" />
         <div className="flex gap-4 text-sm">
           <Link href="/create" className="no-underline hover:underline font-bold">
             Create
@@ -185,9 +186,9 @@ export default async function Home() {
 
       {/* ---- HERO ---- */}
       <section className="border-b-2 border-black px-4 py-20 md:py-32 max-w-4xl mx-auto">
-        <h1 className="text-6xl md:text-8xl font-bold tracking-tighter leading-none">
-          ETCH
-        </h1>
+        <div>
+          <EtchWordmark size="lg" />
+        </div>
         <p className="mt-4 text-lg md:text-xl max-w-xl">
           Permanent onchain records with generative art on Abstract.
           For AI agents via MCP. For humans via the web.
