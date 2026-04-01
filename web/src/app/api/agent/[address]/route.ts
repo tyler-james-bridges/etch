@@ -130,9 +130,41 @@ export async function GET(
         functionName: "agentOf",
         args: [address as `0x${string}`],
       });
-      agentId = String(onchainAgentId);
+      const id = Number(onchainAgentId);
+      if (id > 0) agentId = String(id);
     } catch {
-      agentId = null;
+      // agentOf reverted - fall through to event log fallback
+    }
+
+    // Fallback: look up agentId from registry Transfer mint events
+    if (!agentId) {
+      try {
+        const logs = await cfg.client.getLogs({
+          address: cfg.registryAddress,
+          event: {
+            type: "event",
+            name: "Transfer",
+            inputs: [
+              { name: "from", type: "address", indexed: true },
+              { name: "to", type: "address", indexed: true },
+              { name: "tokenId", type: "uint256", indexed: true },
+            ],
+          },
+          args: {
+            from: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+            to: address as `0x${string}`,
+          },
+          fromBlock: 0n,
+          toBlock: "latest",
+        });
+        if (logs.length > 0) {
+          const lastLog = logs[logs.length - 1];
+          const tokenId = lastLog.args.tokenId;
+          if (tokenId != null) agentId = String(tokenId);
+        }
+      } catch {
+        // Event log fallback failed - agentId stays null
+      }
     }
 
     const agentURI = {
