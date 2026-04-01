@@ -92,7 +92,7 @@ interface CreateResult {
 
 export default function CreatePage() {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors } = useConnect();
+  const { connectAsync, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
 
@@ -422,14 +422,24 @@ export default function CreatePage() {
           </button>
         ) : (
           <button
-            onClick={() => {
-              const connector = connectors[0];
+            onClick={async () => {
+              const connector =
+                connectors.find((c) => c.id === "injected") ||
+                connectors.find((c) => c.name?.toLowerCase().includes("metamask")) ||
+                connectors[0];
+
               if (!connector) {
                 setStep("error");
-                setErrorMessage("No injected wallet detected. Open in a wallet-enabled browser.");
+                setErrorMessage("No wallet connector detected. Make sure a wallet extension is installed and unlocked.");
                 return;
               }
-              connect({ connector });
+
+              try {
+                await connectAsync({ connector });
+              } catch (err: unknown) {
+                setStep("error");
+                setErrorMessage(err instanceof Error ? err.message : "Wallet connection failed");
+              }
             }}
             className="bg-[var(--foreground)] text-[var(--background)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-colors"
           >
