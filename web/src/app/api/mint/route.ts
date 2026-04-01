@@ -12,6 +12,14 @@ import { abstract, base } from "viem/chains";
 import { ETCH_ABI } from "@/lib/contract";
 import { generateEtchMetadata } from "@/lib/art-svg";
 
+// Abstract (zkSync) has strict per-tx storage limits. Data URIs above this
+// byte threshold will exceed the "Storage invocations limit" when written
+// to contract storage via setTokenURI. When the full onchain metadata
+// would exceed this, we store a compact JSON with an image URL pointing to
+// our deterministic art API instead of an inline base64 SVG.
+const ABSTRACT_URI_BYTE_LIMIT = 24_576; // 24 KB - safe margin under zkSync limits
+const ETCH_BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://etch.ack-onchain.dev").replace(/\/$/, "");
+
 const CHAIN_CONFIG = {
   abstract: {
     chain: abstract,
@@ -186,9 +194,28 @@ export async function POST(request: NextRequest) {
     );
 
     const metadataBase64 = Buffer.from(metadataJson).toString("base64");
-    const correctMetadataURI = `data:application/json;base64,${metadataBase64}`;
+    const fullMetadataURI = `data:application/json;base64,${metadataBase64}`;
 
     // Step 4: Update token URI with correct art
+    // On Abstract (zkSync), large data URIs exceed storage invocation limits.
+    // Fall back to a compact URI with a hosted image URL when the full
+    // onchain metadata is too large.
+    let correctMetadataURI = fullMetadataURI;
+    if (targetChain === "abstract" && Buffer.byteLength(fullMetadataURI) > ABSTRACT_URI_BYTE_LIMIT) {
+      const compactMetadata = {
+        name: name.trim() || `ETCH #${mintedTokenId}`,
+        description: description?.trim() || `An onchain ${typeLabels[tokenType] || "token"} etched permanently on Abstract.`,
+        image: `${ETCH_BASE_URL}/api/art/${mintedTokenId}`,
+        external_url: `${ETCH_BASE_URL}/etch/${mintedTokenId}`,
+        attributes: [
+          { trait_type: "Type", value: typeLabels[tokenType] || "Unknown" },
+          { trait_type: "Soulbound", value: soulbound ? "Yes" : "No" },
+        ],
+      };
+      const compactBase64 = Buffer.from(JSON.stringify(compactMetadata)).toString("base64");
+      correctMetadataURI = `data:application/json;base64,${compactBase64}`;
+    }
+
     let updateHash = hash;
 
     if (targetChain === "abstract") {

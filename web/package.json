@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:x402-smoke": "npx tsx scripts/x402-e2e-smoke.mts"
+    "test:x402-smoke": "npx tsx scripts/x402-e2e-smoke.mts",
+    "test:metadata-size": "npx tsx scripts/test-metadata-size.mts"
   },
   "dependencies": {
     "@coinbase/x402": "^2.1.0",
