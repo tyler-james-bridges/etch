@@ -3,12 +3,12 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   useAccount,
-  useConnect,
   useDisconnect,
   useWriteContract,
   useWaitForTransactionReceipt,
   useSwitchChain,
 } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { abstract, base } from "wagmi/chains";
 import { generateEtchSvg } from "@/lib/art-svg";
 import {
@@ -92,7 +92,6 @@ interface CreateResult {
 
 export default function CreatePage() {
   const { address, isConnected, chainId } = useAccount();
-  const { connectAsync, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
 
@@ -413,33 +412,33 @@ export default function CreatePage() {
     <div className="max-w-xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Create ETCH</h1>
-        {isConnected ? (
-          <button
-            onClick={() => disconnect()}
-            className="border-2 border-[var(--border)] px-3 py-1 text-xs font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
-          >
-            {address?.slice(0, 6)}...{address?.slice(-4)}
-          </button>
-        ) : (
-          <div className="flex flex-wrap gap-2 justify-end">
-            {connectors.map((connector) => (
+        <ConnectButton.Custom>
+          {({ account, chain, mounted, openConnectModal }) => {
+            const ready = mounted;
+            const connected = ready && account && chain;
+
+            if (!connected) {
+              return (
+                <button
+                  onClick={openConnectModal}
+                  className="bg-[var(--foreground)] text-[var(--background)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-colors"
+                  type="button"
+                >
+                  CONNECT
+                </button>
+              );
+            }
+
+            return (
               <button
-                key={connector.uid}
-                onClick={async () => {
-                  try {
-                    await connectAsync({ connector });
-                  } catch (err: unknown) {
-                    setStep("error");
-                    setErrorMessage(err instanceof Error ? err.message : "Wallet connection failed");
-                  }
-                }}
-                className="bg-[var(--foreground)] text-[var(--background)] px-3 py-1.5 text-xs font-bold hover:opacity-90 transition-colors"
+                onClick={() => disconnect()}
+                className="border-2 border-[var(--border)] px-3 py-1 text-xs font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
               >
-                {connector.name}
+                {account.displayName}
               </button>
-            ))}
-          </div>
-        )}
+            );
+          }}
+        </ConnectButton.Custom>
       </div>
 
       {/* Art preview */}
