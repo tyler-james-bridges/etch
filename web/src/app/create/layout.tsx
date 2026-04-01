@@ -1,6 +1,6 @@
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-export default function AddressLayout({
+export default function CreateLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -18,7 +18,7 @@ export default function AddressLayout({
           <ThemeToggle />
         </nav>
       </header>
-      <main className="max-w-3xl mx-auto px-4 py-8">{children}</main>
+      <main className="px-4 py-8">{children}</main>
       <footer className="border-t-2 border-[var(--border)] px-4 py-4 text-xs text-center">
         ETCH by{" "}
         <a
