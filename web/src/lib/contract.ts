@@ -1,8 +1,13 @@
 import { createPublicClient, http, type Abi } from "viem";
-import { abstractMainnet } from "./chain";
+import { abstract, base } from "viem/chains";
 
-export const ETCH_ADDRESS =
-  "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C" as const;
+export const ETCH_ADDRESS_ABSTRACT =
+  (process.env.ETCH_ADDRESS_ABSTRACT || "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C") as `0x${string}`;
+
+export const ETCH_ADDRESS_BASE =
+  (process.env.ETCH_ADDRESS_BASE || "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459") as `0x${string}`;
+
+export const ETCH_ADDRESS = ETCH_ADDRESS_ABSTRACT;
 
 export const ETCH_ABI = [
   {
@@ -108,8 +113,13 @@ export const ETCH_ABI = [
   },
 ] as const satisfies Abi;
 
-export const IDENTITY_REGISTRY_ADDRESS =
-  "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
+export const IDENTITY_REGISTRY_ADDRESS_ABSTRACT =
+  (process.env.IDENTITY_REGISTRY_ADDRESS_ABSTRACT || "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432") as `0x${string}`;
+
+export const IDENTITY_REGISTRY_ADDRESS_BASE =
+  (process.env.IDENTITY_REGISTRY_ADDRESS_BASE || "") as `0x${string}`;
+
+export const IDENTITY_REGISTRY_ADDRESS = IDENTITY_REGISTRY_ADDRESS_ABSTRACT;
 
 export const IDENTITY_REGISTRY_ABI = [
   {
@@ -126,6 +136,15 @@ export const IDENTITY_REGISTRY_ABI = [
     inputs: [{ name: "account", type: "address" }],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { name: "from", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "tokenId", type: "uint256", indexed: true },
+    ],
+  },
 ] as const;
 
 export const TOKEN_TYPE_LABELS: Record<number, string> = {
@@ -136,7 +155,14 @@ export const TOKEN_TYPE_LABELS: Record<number, string> = {
   4: "Pass",
 };
 
-export const publicClient = createPublicClient({
-  chain: abstractMainnet,
+export const publicClientAbstract = createPublicClient({
+  chain: abstract,
   transport: http("https://api.mainnet.abs.xyz"),
 });
+
+export const publicClientBase = createPublicClient({
+  chain: base,
+  transport: http("https://mainnet.base.org"),
+});
+
+export const publicClient = publicClientAbstract;

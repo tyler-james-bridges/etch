@@ -1,18 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "viem";
 import {
-  ETCH_ADDRESS,
   ETCH_ABI,
-  IDENTITY_REGISTRY_ADDRESS,
+  ETCH_ADDRESS_ABSTRACT,
+  ETCH_ADDRESS_BASE,
+  IDENTITY_REGISTRY_ADDRESS_ABSTRACT,
+  IDENTITY_REGISTRY_ADDRESS_BASE,
   IDENTITY_REGISTRY_ABI,
-  publicClient,
+  publicClientAbstract,
+  publicClientBase,
 } from "@/lib/contract";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
   const { address } = await params;
+  const chainParam = request.nextUrl.searchParams.get("chain");
+  const targetChain = chainParam === "base" ? "base" : "abstract";
+  const cfg = targetChain === "base"
+    ? {
+        caipChainId: "eip155:8453",
+        etchAddress: ETCH_ADDRESS_BASE,
+        registryAddress: IDENTITY_REGISTRY_ADDRESS_BASE,
+        client: publicClientBase,
+      }
+    : {
+        caipChainId: "eip155:2741",
+        etchAddress: ETCH_ADDRESS_ABSTRACT,
+        registryAddress: IDENTITY_REGISTRY_ADDRESS_ABSTRACT,
+        client: publicClientAbstract,
+      };
 
   if (!address || !isAddress(address)) {
     return NextResponse.json(
@@ -21,9 +39,16 @@ export async function GET(
     );
   }
 
+  if (!cfg.registryAddress || cfg.registryAddress === ("" as `0x${string}`)) {
+    return NextResponse.json(
+      { error: `Identity registry not configured for ${targetChain}` },
+      { status: 500 }
+    );
+  }
+
   try {
-    const balance = await publicClient.readContract({
-      address: ETCH_ADDRESS,
+    const balance = await cfg.client.readContract({
+      address: cfg.etchAddress,
       abi: ETCH_ABI,
       functionName: "balanceOf",
       args: [address as `0x${string}`],
@@ -44,15 +69,15 @@ export async function GET(
     let tokenDescription = "An onchain agent identity.";
 
     for (let i = balanceNum - 1; i >= 0; i--) {
-      const tokenId = await publicClient.readContract({
-        address: ETCH_ADDRESS,
+      const tokenId = await cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "tokenOfOwnerByIndex",
         args: [address as `0x${string}`, BigInt(i)],
       });
 
-      const tType = await publicClient.readContract({
-        address: ETCH_ADDRESS,
+      const tType = await cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "tokenType",
         args: [tokenId],
@@ -62,8 +87,8 @@ export async function GET(
         identityTokenId = Number(tokenId);
 
         // Parse metadata from tokenURI
-        const uri = await publicClient.readContract({
-          address: ETCH_ADDRESS,
+        const uri = await cfg.client.readContract({
+          address: cfg.etchAddress,
           abi: ETCH_ABI,
           functionName: "tokenURI",
           args: [tokenId],
@@ -99,8 +124,8 @@ export async function GET(
 
     let agentId: string | null = null;
     try {
-      const onchainAgentId = await publicClient.readContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+      const onchainAgentId = await cfg.client.readContract({
+        address: cfg.registryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: "agentOf",
         args: [address as `0x${string}`],
@@ -121,7 +146,7 @@ export async function GET(
       registrations: [
         {
           agentId,
-          agentRegistry: `eip155:2741:${IDENTITY_REGISTRY_ADDRESS}`,
+          agentRegistry: `${cfg.caipChainId}:${cfg.registryAddress}`,
         },
       ],
       supportedTrust: ["reputation"],

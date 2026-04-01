@@ -13,8 +13,10 @@ import { injected } from "wagmi/connectors";
 import { abstract, base } from "wagmi/chains";
 import { generateEtchSvg } from "@/lib/art-svg";
 import {
-  ETCH_ADDRESS,
-  IDENTITY_REGISTRY_ADDRESS,
+  ETCH_ADDRESS_ABSTRACT,
+  ETCH_ADDRESS_BASE,
+  IDENTITY_REGISTRY_ADDRESS_ABSTRACT,
+  IDENTITY_REGISTRY_ADDRESS_BASE,
   IDENTITY_REGISTRY_ABI,
 } from "@/lib/contract";
 import Link from "next/link";
@@ -44,8 +46,13 @@ const REGISTER_8004_DEFAULTS: Record<number, boolean> = {
 };
 
 const ETCH_ADDRESS_BY_CHAIN = {
-  abstract: "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C",
-  base: "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459",
+  abstract: ETCH_ADDRESS_ABSTRACT,
+  base: ETCH_ADDRESS_BASE,
+} as const;
+
+const REGISTRY_ADDRESS_BY_CHAIN = {
+  abstract: IDENTITY_REGISTRY_ADDRESS_ABSTRACT,
+  base: IDENTITY_REGISTRY_ADDRESS_BASE,
 } as const;
 
 const EXPLORER_BY_CHAIN = {
@@ -96,6 +103,11 @@ export default function CreatePage() {
   const [soulbound, setSoulbound] = useState(true);
   const [mintChain, setMintChain] = useState<"abstract" | "base">("abstract");
   const [register8004, setRegister8004] = useState(true);
+
+  const registryConfigured = useMemo(() => {
+    const registry = REGISTRY_ADDRESS_BY_CHAIN[mintChain];
+    return typeof registry === "string" && registry.length === 42 && registry.startsWith("0x");
+  }, [mintChain]);
   const [step, setStep] = useState<CreateStep>("idle");
   const [result, setResult] = useState<CreateResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -119,8 +131,8 @@ export default function CreatePage() {
     setTokenType(newType);
     setSoulbound(SOULBOUND_DEFAULTS[newType] ?? true);
     const shouldRegister = REGISTER_8004_DEFAULTS[newType] ?? false;
-    setRegister8004(mintChain === "abstract" ? shouldRegister : false);
-  }, [mintChain]);
+    setRegister8004(registryConfigured ? shouldRegister : false);
+  }, [registryConfigured]);
 
   // Handle register tx confirmation
   const handleRegisterConfirmed = useCallback(
@@ -131,13 +143,11 @@ export default function CreatePage() {
         // The register function returns agentId - check logs for it
         // Look for a Transfer or similar event that contains the agentId
         for (const log of receipt.logs) {
-          if (
-            log.address.toLowerCase() ===
-            IDENTITY_REGISTRY_ADDRESS.toLowerCase()
-          ) {
-            // The agentId is typically in the first topic after the event signature
-            if (log.topics.length > 1) {
-              agentId = BigInt(log.topics[1] as string).toString();
+          const expectedRegistry = REGISTRY_ADDRESS_BY_CHAIN[currentResult.chain];
+          if (log.address.toLowerCase() === expectedRegistry.toLowerCase()) {
+            // ERC-721 Transfer: topic[3] is tokenId when indexed
+            if (log.topics.length > 3) {
+              agentId = BigInt(log.topics[3] as string).toString();
               break;
             }
           }
@@ -208,29 +218,38 @@ export default function CreatePage() {
 
       setStep("mint-done");
 
+      const targetRegisterChainId = mintChain === "base" ? base.id : abstract.id;
+      const registryAddress = REGISTRY_ADDRESS_BY_CHAIN[mintChain];
+
+      if (!registryConfigured) {
+        setStep("error");
+        setErrorMessage(`ERC-8004 registry is not configured for ${mintChain}.`);
+        return;
+      }
+
       // Step 2: Check chain and switch if needed
-      if (chainId !== abstract.id) {
+      if (chainId !== targetRegisterChainId) {
         setStep("switching-chain");
         try {
-          switchChain({ chainId: abstract.id });
+          switchChain({ chainId: targetRegisterChainId });
         } catch {
           setStep("error");
-          setErrorMessage("Failed to switch to Abstract chain. Please switch manually and try again.");
+          setErrorMessage(`Failed to switch to ${mintChain} chain. Please switch manually and try again.`);
           return;
         }
       }
 
       // Step 3: Prompt user to sign register() tx
       setStep("sign-register");
-      const agentURI = `https://etch.ack-onchain.dev/api/agent/${address}`;
+      const agentURI = `https://etch.ack-onchain.dev/api/agent/${address}?chain=${mintChain}`;
 
       writeContract(
         {
-          address: IDENTITY_REGISTRY_ADDRESS,
+          address: registryAddress,
           abi: IDENTITY_REGISTRY_ABI,
           functionName: "register",
           args: [agentURI],
-          chainId: abstract.id,
+          chainId: targetRegisterChainId,
         },
         {
           onSuccess: () => {
@@ -274,6 +293,7 @@ export default function CreatePage() {
     const has8004 = !!result.registerTxHash;
     const explorerBase = EXPLORER_BY_CHAIN[result.chain];
     const etchAddress = ETCH_ADDRESS_BY_CHAIN[result.chain];
+    const registryAddress = REGISTRY_ADDRESS_BY_CHAIN[result.chain];
     const openseaChain = OPENSEA_CHAIN_BY_CHAIN[result.chain];
     return (
       <div className="max-w-xl mx-auto py-12 space-y-6">
@@ -282,13 +302,13 @@ export default function CreatePage() {
           <h2 className="text-2xl font-bold mb-2">
             {has8004 ? "Your agent is live" : "Etched"}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--muted)]">
             ETCH #{result.tokenId}
             {has8004 ? " + ERC-8004 Agent" : ""} is permanently onchain.
           </p>
         </div>
 
-        <div className="border-2 border-black p-5 space-y-3">
+        <div className="border-2 border-[var(--border)] p-5 space-y-3">
           <p className="text-xs uppercase tracking-widest font-bold">
             ETCH Token
           </p>
@@ -329,13 +349,13 @@ export default function CreatePage() {
         </div>
 
         {has8004 && (
-          <div className="border-2 border-black p-5 space-y-3">
+          <div className="border-2 border-[var(--border)] p-5 space-y-3">
             <p className="text-xs uppercase tracking-widest font-bold">
               ERC-8004 Agent
             </p>
             <div className="space-y-2 text-sm">
               <a
-                href={`https://etch.ack-onchain.dev/api/agent/${address}`}
+                href={`https://etch.ack-onchain.dev/api/agent/${address}?chain=${result.chain}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block underline break-all"
@@ -353,7 +373,7 @@ export default function CreatePage() {
                 </a>
               )}
               <a
-                href={`https://abscan.org/tx/${result.registerTxHash}`}
+                href={`${explorerBase}/tx/${result.registerTxHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block underline break-all"
@@ -361,7 +381,7 @@ export default function CreatePage() {
                 Abscan Tx (register)
               </a>
               <a
-                href={`https://abscan.org/address/${IDENTITY_REGISTRY_ADDRESS}`}
+                href={`${explorerBase}/address/${registryAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block underline break-all"
@@ -380,7 +400,7 @@ export default function CreatePage() {
             setDescription("");
             resetWriteContract();
           }}
-          className="w-full border-2 border-black px-6 py-3 font-bold hover:bg-black hover:text-white transition-colors"
+          className="w-full border-2 border-[var(--border)] px-6 py-3 font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
         >
           Create Another
         </button>
@@ -395,14 +415,14 @@ export default function CreatePage() {
         {isConnected ? (
           <button
             onClick={() => disconnect()}
-            className="border-2 border-black px-3 py-1 text-xs font-bold hover:bg-black hover:text-white transition-colors"
+            className="border-2 border-[var(--border)] px-3 py-1 text-xs font-bold hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
           >
             {address?.slice(0, 6)}...{address?.slice(-4)}
           </button>
         ) : (
           <button
             onClick={() => connect({ connector: injected() })}
-            className="bg-black text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors"
+            className="bg-[var(--foreground)] text-[var(--background)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-colors"
           >
             Connect Wallet
           </button>
@@ -411,15 +431,15 @@ export default function CreatePage() {
 
       {/* Art preview */}
       <div
-        className="border-2 border-black w-full max-w-xl mx-auto overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+        className="border-2 border-[var(--border)] w-full max-w-xl mx-auto overflow-hidden [&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
         dangerouslySetInnerHTML={{ __html: previewSvg }}
       />
-      <p className="text-xs text-gray-400 text-center">
+      <p className="text-xs text-[var(--muted-light)] text-center">
         Preview based on your wallet. Final art is unique to the token ID.
       </p>
 
       {/* Form */}
-      <div className="border-2 border-black p-5 space-y-4">
+      <div className="border-2 border-[var(--border)] p-5 space-y-4">
         <div>
           <label className="block text-xs uppercase tracking-widest font-bold mb-1">
             Name *
@@ -430,7 +450,7 @@ export default function CreatePage() {
             onChange={(e) => setName(e.target.value)}
             placeholder="My onchain record"
             disabled={isProcessing}
-            className="w-full border-2 border-black px-3 py-2 text-sm font-mono bg-white focus:outline-none placeholder:text-gray-400 disabled:bg-gray-100"
+            className="w-full border-2 border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--background)] focus:outline-none placeholder:text-[var(--muted-light)] disabled:bg-[var(--surface)]"
           />
         </div>
 
@@ -444,7 +464,7 @@ export default function CreatePage() {
             placeholder="What this record represents"
             rows={2}
             disabled={isProcessing}
-            className="w-full border-2 border-black px-3 py-2 text-sm font-mono bg-white focus:outline-none placeholder:text-gray-400 resize-none disabled:bg-gray-100"
+            className="w-full border-2 border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--background)] focus:outline-none placeholder:text-[var(--muted-light)] resize-none disabled:bg-[var(--surface)]"
           />
         </div>
 
@@ -460,8 +480,8 @@ export default function CreatePage() {
                 disabled={isProcessing}
                 className={`border-2 px-3 py-1.5 text-xs font-bold transition-colors ${
                   tokenType === t.value
-                    ? "border-black bg-black text-white"
-                    : "border-black hover:bg-gray-100"
+                    ? "border-[var(--border)] bg-[var(--foreground)] text-[var(--background)]"
+                    : "border-[var(--border)] hover:bg-[var(--surface)]"
                 } disabled:opacity-50`}
               >
                 {t.label}
@@ -469,7 +489,7 @@ export default function CreatePage() {
             ))}
           </div>
           {selectedType && (
-            <p className="text-xs text-gray-400 mt-1">{selectedType.desc}</p>
+            <p className="text-xs text-[var(--muted-light)] mt-1">{selectedType.desc}</p>
           )}
         </div>
 
@@ -486,17 +506,18 @@ export default function CreatePage() {
                 key={value}
                 onClick={() => {
                   setMintChain(value);
-                  if (value === "base") setRegister8004(false);
-                  if (value === "abstract") {
-                    const shouldRegister = REGISTER_8004_DEFAULTS[tokenType] ?? false;
-                    setRegister8004(shouldRegister);
-                  }
+                  const hasRegistry =
+                    value === "abstract"
+                      ? !!IDENTITY_REGISTRY_ADDRESS_ABSTRACT
+                      : !!IDENTITY_REGISTRY_ADDRESS_BASE;
+                  const shouldRegister = REGISTER_8004_DEFAULTS[tokenType] ?? false;
+                  setRegister8004(hasRegistry ? shouldRegister : false);
                 }}
                 disabled={isProcessing}
                 className={`border-2 px-3 py-1.5 text-xs font-bold transition-colors ${
                   mintChain === value
-                    ? "border-black bg-black text-white"
-                    : "border-black hover:bg-gray-100"
+                    ? "border-[var(--border)] bg-[var(--foreground)] text-[var(--background)]"
+                    : "border-[var(--border)] hover:bg-[var(--surface)]"
                 } disabled:opacity-50`}
               >
                 {label}
@@ -512,38 +533,38 @@ export default function CreatePage() {
             checked={soulbound}
             onChange={(e) => setSoulbound(e.target.checked)}
             disabled={isProcessing}
-            className="w-4 h-4 border-2 border-black accent-black"
+            className="w-4 h-4 border-2 border-[var(--border)] accent-black"
           />
           <label htmlFor="soulbound" className="text-sm">
             <span className="font-bold">Soulbound</span>
-            <span className="text-gray-400 ml-1">
+            <span className="text-[var(--muted-light)] ml-1">
               {" "}
               cannot be transferred
             </span>
           </label>
         </div>
 
-        <div className="border-t-2 border-black pt-4 mt-4">
+        <div className="border-t-2 border-[var(--border)] pt-4 mt-4">
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
               id="register8004"
               checked={register8004}
               onChange={(e) => setRegister8004(e.target.checked)}
-              disabled={isProcessing || mintChain !== "abstract"}
-              className="w-4 h-4 border-2 border-black accent-black"
+              disabled={isProcessing || !registryConfigured}
+              className="w-4 h-4 border-2 border-[var(--border)] accent-black"
             />
             <label htmlFor="register8004" className="text-sm">
               <span className="font-bold">Register as ERC-8004 Agent</span>
             </label>
           </div>
-          {mintChain !== "abstract" ? (
-            <p className="text-xs text-gray-400 mt-2 ml-7">
-              ERC-8004 registration is currently Abstract-only.
+          {!registryConfigured ? (
+            <p className="text-xs text-[var(--muted-light)] mt-2 ml-7">
+              ERC-8004 registration is not configured for {mintChain} yet.
             </p>
           ) : register8004 ? (
-            <p className="text-xs text-gray-400 mt-2 ml-7">
-              Creates an onchain agent identity on the ERC-8004 registry. Your
+            <p className="text-xs text-[var(--muted-light)] mt-2 ml-7">
+              Creates an onchain agent identity on the ERC-8004 registry for {mintChain}. Your
               wallet becomes a registered agent.
             </p>
           ) : null}
@@ -552,7 +573,7 @@ export default function CreatePage() {
 
       {/* Step indicator */}
       {isProcessing && (
-        <div className="border-2 border-black p-4 text-sm font-mono">
+        <div className="border-2 border-[var(--border)] p-4 text-sm font-mono">
           {step === "minting" && (
             <p>
               [1/{register8004 ? "3" : "1"}] Minting ETCH token...
@@ -560,7 +581,7 @@ export default function CreatePage() {
           )}
           {step === "mint-done" && <p>[1/3] ETCH minted. Preparing registration...</p>}
           {step === "switching-chain" && (
-            <p>[2/3] Switching to Abstract chain...</p>
+            <p>[2/3] Switching to {mintChain} chain...</p>
           )}
           {step === "sign-register" && (
             <p>[2/3] Sign to register your agent...</p>
@@ -590,7 +611,7 @@ export default function CreatePage() {
       <button
         onClick={handleCreate}
         disabled={!canCreate}
-        className="w-full bg-black text-white px-6 py-3 font-bold text-sm uppercase tracking-wider hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+        className="w-full bg-[var(--foreground)] text-[var(--background)] px-6 py-3 font-bold text-sm uppercase tracking-wider hover:opacity-90 transition-colors disabled:bg-[var(--muted-light)] disabled:cursor-not-allowed"
       >
         {isProcessing
           ? "Creating..."
@@ -599,7 +620,7 @@ export default function CreatePage() {
             : "Mint ETCH"}
       </button>
 
-      <p className="text-xs text-gray-400 text-center">
+      <p className="text-xs text-[var(--muted-light)] text-center">
         {isConnected
           ? register8004
             ? `Minting on ${mintChain} to ${address}. ETCH minting is free. Registration requires a wallet signature and gas.`
