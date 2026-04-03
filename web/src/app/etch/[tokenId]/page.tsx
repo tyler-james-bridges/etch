@@ -79,6 +79,33 @@ function parseTokenUri(uri: string): {
   return { description: null, format: "external" };
 }
 
+async function tokenExistsOnChain(tokenId: bigint, cfg: ChainConfig): Promise<boolean> {
+  try {
+    await cfg.client.readContract({
+      address: cfg.etchAddress,
+      abi: ETCH_ABI,
+      functionName: "ownerOf",
+      args: [tokenId],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveChainConfig(tokenId: bigint, chainParam?: string): Promise<ChainConfig> {
+  if (chainParam === "base") return getChainConfig("base");
+  if (chainParam === "abstract") return getChainConfig("abstract");
+
+  const abstractCfg = getChainConfig("abstract");
+  if (await tokenExistsOnChain(tokenId, abstractCfg)) return abstractCfg;
+
+  const baseCfg = getChainConfig("base");
+  if (await tokenExistsOnChain(tokenId, baseCfg)) return baseCfg;
+
+  return abstractCfg;
+}
+
 async function getTokenData(tokenId: bigint, cfg: ChainConfig) {
   try {
     const [owner, uri, tokenType, soulbound] = await Promise.all([
@@ -123,8 +150,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { tokenId: tokenIdStr } = await params;
   const { chain: chainParam } = await searchParams;
-  const cfg = getChainConfig(chainParam === "base" ? "base" : "abstract");
   const tokenId = BigInt(tokenIdStr);
+  const cfg = await resolveChainConfig(tokenId, chainParam);
 
   try {
     const [uri, tokenType, soulbound] = await Promise.all([
@@ -195,8 +222,8 @@ export default async function TokenPage({
 }) {
   const { tokenId: tokenIdStr } = await params;
   const { chain: chainParam } = await searchParams;
-  const cfg = getChainConfig(chainParam === "base" ? "base" : "abstract");
   const tokenId = BigInt(tokenIdStr);
+  const cfg = await resolveChainConfig(tokenId, chainParam);
   const data = await getTokenData(tokenId, cfg);
 
   if (!data) {
