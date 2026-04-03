@@ -378,7 +378,7 @@ export default function CreatePage() {
                 rel="noopener noreferrer"
                 className="block underline break-all"
               >
-                Abscan Tx (register)
+                Explorer Tx (register)
               </a>
               <a
                 href={`${explorerBase}/address/${registryAddress}`}
@@ -386,7 +386,7 @@ export default function CreatePage() {
                 rel="noopener noreferrer"
                 className="block underline break-all"
               >
-                Registry on Abscan
+                Registry on {result.chain === "base" ? "Basescan" : "Abscan"}
               </a>
             </div>
           </div>

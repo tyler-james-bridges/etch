@@ -1,12 +1,15 @@
 import {
-  publicClient,
-  ETCH_ADDRESS,
+  publicClientAbstract,
+  publicClientBase,
+  ETCH_ADDRESS_ABSTRACT,
+  ETCH_ADDRESS_BASE,
   ETCH_ABI,
   TOKEN_TYPE_LABELS,
 } from "@/lib/contract";
 import { CopyButton } from "@/components/CopyButton";
 import { generateEtchSvg } from "@/lib/art-svg";
 import { EtchWordmark } from "@/components/EtchWordmark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
 
 export const revalidate = 30;
@@ -56,7 +59,7 @@ const TOKEN_TYPES = [
 const FAQ_ITEMS = [
   {
     q: "What is ETCH?",
-    a: "An ERC-721 contract on Abstract that lets AI agents mint typed, optionally soulbound tokens. Think of it as a protocol-level primitive for onchain records.",
+    a: "An ERC-721 contract on Abstract and Base that lets AI agents mint typed, optionally soulbound tokens. Think of it as a protocol-level primitive for onchain records.",
   },
   {
     q: "What does soulbound mean?",
@@ -72,15 +75,15 @@ const FAQ_ITEMS = [
   },
   {
     q: "Does it cost anything?",
-    a: "Minting via the web app is free (we cover gas). MCP minting requires a small amount of ETH on Abstract for gas. No protocol fees either way.",
+    a: "Minting via the web app is free (we cover gas). MCP minting requires a small amount of ETH on Abstract or Base for gas. No protocol fees either way.",
   },
   {
     q: "What is the ERC-8004 agent registration?",
-    a: "When you create an Identity token, you can also register as an ERC-8004 agent on Abstract. This gives you a permanent onchain agent identity with a metadata profile, discoverable by other agents and protocols.",
+    a: "When you create an Identity token, you can also register as an ERC-8004 agent. This gives you a permanent onchain agent identity with a metadata profile, discoverable by other agents and protocols.",
   },
   {
-    q: "Why Abstract?",
-    a: "Sub-cent gas, native account abstraction, and a chain built for consumer crypto. Agents can mint hundreds of tokens without burning through a wallet.",
+    q: "Which chains are supported?",
+    a: "ETCH is deployed on Abstract and Base. Both offer sub-cent gas and fast finality. Choose your chain when minting.",
   },
 ];
 
@@ -93,42 +96,51 @@ type TokenInfo = {
 };
 
 async function getStats() {
-  const totalSupply = await publicClient.readContract({
-    address: ETCH_ADDRESS,
-    abi: ETCH_ABI,
-    functionName: "totalSupply",
-  });
+  const [abstractSupply, baseSupply] = await Promise.all([
+    publicClientAbstract.readContract({
+      address: ETCH_ADDRESS_ABSTRACT,
+      abi: ETCH_ABI,
+      functionName: "totalSupply",
+    }),
+    publicClientBase.readContract({
+      address: ETCH_ADDRESS_BASE,
+      abi: ETCH_ABI,
+      functionName: "totalSupply",
+    }).catch(() => 0n),
+  ]);
 
-  const total = Number(totalSupply);
+  const abstractTotal = Number(abstractSupply);
+  const baseTotal = Number(baseSupply);
+  const combinedTotal = abstractTotal + baseTotal;
 
-  // Fetch recent tokens (up to 12, newest first)
-  const count = Math.min(total, 12);
+  // Fetch recent tokens from Abstract (up to 8, newest first)
+  const count = Math.min(abstractTotal, 8);
   const recentTokens: TokenInfo[] = [];
 
-  for (let i = total - 1; i >= total - count && i >= 0; i--) {
+  for (let i = abstractTotal - 1; i >= abstractTotal - count && i >= 0; i--) {
     try {
-      const tokenId = await publicClient.readContract({
-        address: ETCH_ADDRESS,
+      const tokenId = await publicClientAbstract.readContract({
+        address: ETCH_ADDRESS_ABSTRACT,
         abi: ETCH_ABI,
         functionName: "tokenByIndex",
         args: [BigInt(i)],
       });
 
       const [tokenType, soulbound, owner] = await Promise.all([
-        publicClient.readContract({
-          address: ETCH_ADDRESS,
+        publicClientAbstract.readContract({
+          address: ETCH_ADDRESS_ABSTRACT,
           abi: ETCH_ABI,
           functionName: "tokenType",
           args: [tokenId as bigint],
         }),
-        publicClient.readContract({
-          address: ETCH_ADDRESS,
+        publicClientAbstract.readContract({
+          address: ETCH_ADDRESS_ABSTRACT,
           abi: ETCH_ABI,
           functionName: "isSoulbound",
           args: [tokenId as bigint],
         }),
-        publicClient.readContract({
-          address: ETCH_ADDRESS,
+        publicClientAbstract.readContract({
+          address: ETCH_ADDRESS_ABSTRACT,
           abi: ETCH_ABI,
           functionName: "ownerOf",
           args: [tokenId as bigint],
@@ -149,7 +161,13 @@ async function getStats() {
     }
   }
 
-  return { totalSupply: total, recentTokens };
+  return {
+    totalSupply: combinedTotal,
+    abstractSupply: abstractTotal,
+    baseSupply: baseTotal,
+    recentTokens,
+    hasMore: abstractTotal > count,
+  };
 }
 
 export default async function Home() {
@@ -158,52 +176,53 @@ export default async function Home() {
   return (
     <div className="min-h-screen">
       {/* ---- NAV ---- */}
-      <nav className="sticky top-0 z-50 bg-white border-b-2 border-black px-4 py-3 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 bg-[var(--background)] border-b-2 border-[var(--border)] px-4 py-3 flex items-center justify-between">
         <EtchWordmark size="sm" />
-        <div className="flex gap-4 text-sm">
+        <div className="flex items-center gap-4 text-sm">
           <Link href="/create" className="no-underline hover:underline font-bold">
             Create
           </Link>
-          <a href="#setup" className="no-underline hover:underline">
+          <a href="#setup" className="hidden sm:inline no-underline hover:underline">
             Setup
           </a>
-          <a href="#types" className="no-underline hover:underline">
+          <a href="#types" className="hidden sm:inline no-underline hover:underline">
             Types
           </a>
-          <a href="#faq" className="no-underline hover:underline">
+          <a href="#faq" className="hidden sm:inline no-underline hover:underline">
             FAQ
           </a>
           <a
             href="https://github.com/tyler-james-bridges/etch"
             target="_blank"
             rel="noopener noreferrer"
-            className="no-underline hover:underline"
+            className="hidden sm:inline no-underline hover:underline"
           >
             GitHub
           </a>
+          <ThemeToggle />
         </div>
       </nav>
 
       {/* ---- HERO ---- */}
-      <section className="border-b-2 border-black px-4 py-20 md:py-32 max-w-4xl mx-auto">
+      <section className="border-b-2 border-[var(--border)] px-4 py-20 md:py-32 max-w-4xl mx-auto">
         <div>
           <EtchWordmark size="lg" />
         </div>
         <p className="mt-4 text-lg md:text-xl max-w-xl">
-          Permanent onchain records with generative art on Abstract.
+          Permanent onchain records with generative art on Abstract and Base.
           For AI agents via MCP. For humans via the web.
           Optionally register as an ERC-8004 agent in one click.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/create"
-            className="bg-black text-white px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-gray-800 transition-colors"
+            className="bg-[var(--foreground)] text-[var(--background)] px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:opacity-90 transition-colors"
           >
             Create
           </Link>
           <a
             href="#setup"
-            className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
+            className="border-2 border-[var(--border)] px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
           >
             MCP Setup
           </a>
@@ -211,16 +230,24 @@ export default async function Home() {
             href="https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C"
             target="_blank"
             rel="noopener noreferrer"
-            className="border-2 border-black px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
+            className="border-2 border-[var(--border)] px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
           >
-            Contract
+            Abstract Contract
+          </a>
+          <a
+            href="https://basescan.org/address/0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-2 border-[var(--border)] px-5 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
+          >
+            Base Contract
           </a>
         </div>
       </section>
 
       {/* ---- GALLERY ---- */}
       {stats.recentTokens.length > 0 && (
-        <section className="border-b-2 border-black px-4 py-12 md:py-16">
+        <section className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
@@ -228,7 +255,7 @@ export default async function Home() {
               </h2>
               <Link
                 href="/create"
-                className="border-2 border-black px-4 py-1.5 text-xs font-bold uppercase tracking-wider no-underline hover:bg-black hover:text-white transition-colors"
+                className="border-2 border-[var(--border)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
               >
                 Create
               </Link>
@@ -236,21 +263,21 @@ export default async function Home() {
             {stats.recentTokens.length === 1 ? (
               <Link
                 href={`/etch/${stats.recentTokens[0].id}`}
-                className="border-2 border-black no-underline hover:bg-gray-50 transition-colors block max-w-sm mx-auto"
+                className="border-2 border-[var(--border)] no-underline hover:bg-[var(--surface)] transition-colors block max-w-sm mx-auto"
               >
                 <div
                   className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
                   dangerouslySetInnerHTML={{ __html: stats.recentTokens[0].svg }}
                 />
-                <div className="p-4 border-t-2 border-black">
+                <div className="p-4 border-t-2 border-[var(--border)]">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold">ETCH #{stats.recentTokens[0].id}</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-[var(--muted)]">
                       {TOKEN_TYPE_LABELS[stats.recentTokens[0].tokenType] || "Unknown"}
                     </span>
                   </div>
                   {stats.recentTokens[0].soulbound && (
-                    <span className="text-xs uppercase tracking-wider text-gray-400">
+                    <span className="text-xs uppercase tracking-wider text-[var(--muted-light)]">
                       Soulbound
                     </span>
                   )}
@@ -262,21 +289,21 @@ export default async function Home() {
                   <Link
                     key={token.id}
                     href={`/etch/${token.id}`}
-                    className="border-2 border-black -mt-[2px] -ml-[2px] no-underline hover:bg-gray-50 transition-colors group"
+                    className="border-2 border-[var(--border)] -mt-[2px] -ml-[2px] no-underline hover:bg-[var(--surface)] transition-colors group"
                   >
                     <div
                       className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
                       dangerouslySetInnerHTML={{ __html: token.svg }}
                     />
-                    <div className="p-3 border-t-2 border-black">
+                    <div className="p-3 border-t-2 border-[var(--border)]">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold">#{token.id}</span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-[var(--muted)]">
                           {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
                         </span>
                       </div>
                       {token.soulbound && (
-                        <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                        <span className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
                           Soulbound
                         </span>
                       )}
@@ -285,23 +312,33 @@ export default async function Home() {
                 ))}
               </div>
             )}
+            {stats.hasMore && (
+              <div className="mt-6 text-center">
+                <Link
+                  href={`/etch/${stats.recentTokens[stats.recentTokens.length - 1]?.id ?? 0}`}
+                  className="border-2 border-[var(--border)] px-6 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
+                >
+                  View all {stats.totalSupply} etches
+                </Link>
+              </div>
+            )}
           </div>
         </section>
       )}
 
       {/* ---- TERMINAL DEMO ---- */}
-      <section className="border-b-2 border-black px-4 py-12 md:py-16">
+      <section className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-xs uppercase tracking-widest mb-4">
             How it works
           </h2>
-          <div className="border-2 border-black bg-black text-green-400 p-6 overflow-x-auto">
+          <div className="border-2 border-[var(--border)] bg-black text-green-400 p-6 overflow-x-auto">
             <pre className="text-sm leading-relaxed whitespace-pre">
-              <span className="text-gray-500">{"// You talk to your agent"}</span>
+              <span className="text-[var(--muted)]">{"// You talk to your agent"}</span>
               {"\n"}
               <span className="text-white">{">"}</span>
               {" Etch a soulbound credential for 0xAb5...3fC\n\n"}
-              <span className="text-gray-500">{"// Agent calls ETCH via MCP"}</span>
+              <span className="text-[var(--muted)]">{"// Agent calls ETCH via MCP"}</span>
               {"\n"}
               <span className="text-blue-400">etch</span>
               {"({\n"}
@@ -310,7 +347,7 @@ export default async function Home() {
               {"  tokenType: \"credential\",\n"}
               {"  soulbound: true\n"}
               {"})\n\n"}
-              <span className="text-gray-500">{"// Generative art + metadata minted onchain"}</span>
+              <span className="text-[var(--muted)]">{"// Generative art + metadata minted onchain"}</span>
               {"\n"}
               <span className="text-green-300">{"OK"}</span>
               {" tokenId: 1 | type: credential | soulbound: true\n"}
@@ -324,7 +361,7 @@ export default async function Home() {
       </section>
 
       {/* ---- SETUP ---- */}
-      <section id="setup" className="border-b-2 border-black px-4 py-12 md:py-16">
+      <section id="setup" className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
             Setup
@@ -333,8 +370,8 @@ export default async function Home() {
             Add the ETCH MCP server to your agent config. Works with Claude
             Desktop, Cursor, Windsurf, and any MCP-compatible client.
           </p>
-          <div className="border-2 border-black">
-            <div className="flex items-center justify-between border-b-2 border-black px-4 py-2 bg-gray-100">
+          <div className="border-2 border-[var(--border)]">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border)] px-4 py-2 bg-[var(--surface)]">
               <span className="text-xs uppercase tracking-wider font-bold">
                 mcp.json
               </span>
@@ -342,15 +379,15 @@ export default async function Home() {
             </div>
             <pre className="p-4 text-sm overflow-x-auto">{MCP_CONFIG}</pre>
           </div>
-          <p className="text-xs mt-3 text-gray-600">
+          <p className="text-xs mt-3 text-[var(--muted)]">
             Requires Node.js 18+. The server runs locally and connects to
-            Abstract mainnet.
+            Abstract and Base mainnets.
           </p>
         </div>
       </section>
 
       {/* ---- TOKEN TYPES ---- */}
-      <section id="types" className="border-b-2 border-black px-4 py-12 md:py-16">
+      <section id="types" className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
             Token Types
@@ -359,11 +396,11 @@ export default async function Home() {
             {TOKEN_TYPES.map((t) => (
               <div
                 key={t.id}
-                className="border-2 border-black p-5 -mt-[2px] -ml-[2px]"
+                className="border-2 border-[var(--border)] p-5 -mt-[2px] -ml-[2px]"
               >
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-lg font-bold">{t.name}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-[var(--muted)]">
                     type {t.id}
                   </span>
                 </div>
@@ -374,65 +411,92 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ---- WHY ABSTRACT ---- */}
-      <section className="border-b-2 border-black px-4 py-12 md:py-16">
+      {/* ---- SUPPORTED CHAINS ---- */}
+      <section className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
-            Why Abstract
+            Supported Chains
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-            <div className="border-2 border-black p-5 -mt-[2px] -ml-[2px]">
-              <h3 className="font-bold mb-1">Sub-cent gas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+            <div className="border-2 border-[var(--border)] p-5 -mt-[2px] -ml-[2px]">
+              <h3 className="font-bold mb-1">Abstract</h3>
               <p className="text-sm">
-                Minting costs fractions of a penny. Agents can operate at scale
-                without draining wallets.
+                Sub-cent gas, native account abstraction, and a chain built for
+                consumer crypto. ERC-8004 agent registry available.
               </p>
+              <a
+                href="https://abscan.org/address/0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs mt-2 inline-block"
+              >
+                View on Abscan
+              </a>
             </div>
-            <div className="border-2 border-black p-5 -mt-[2px] -ml-[2px]">
-              <h3 className="font-bold mb-1">Native AA</h3>
+            <div className="border-2 border-[var(--border)] p-5 -mt-[2px] -ml-[2px]">
+              <h3 className="font-bold mb-1">Base</h3>
               <p className="text-sm">
-                Account abstraction is built into the chain. Smart wallets,
-                paymasters, and batch transactions out of the box.
+                Coinbase&apos;s L2 with massive adoption, low gas, and deep
+                liquidity. Same ETCH contract, same generative art.
               </p>
-            </div>
-            <div className="border-2 border-black p-5 -mt-[2px] -ml-[2px]">
-              <h3 className="font-bold mb-1">Consumer chain</h3>
-              <p className="text-sm">
-                Abstract is designed for consumer apps. Fast finality, clean
-                explorer, growing ecosystem.
-              </p>
+              <a
+                href="https://basescan.org/address/0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs mt-2 inline-block"
+              >
+                View on Basescan
+              </a>
             </div>
           </div>
         </div>
       </section>
 
       {/* ---- LIVE STATS ---- */}
-      <section className="border-b-2 border-black px-4 py-12 md:py-16">
+      <section className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-xs uppercase tracking-widest mb-4">
-            Live from Abstract
+            Live Stats
           </h2>
-          <div className="border-2 border-black p-6 inline-block">
-            <div className="text-xs uppercase tracking-wider mb-1">
-              Total Supply
+          <div className="flex flex-wrap gap-0">
+            <div className="border-2 border-[var(--border)] p-6 -ml-[2px] -mt-[2px]">
+              <div className="text-xs uppercase tracking-wider mb-1">
+                Total Supply
+              </div>
+              <div className="text-5xl md:text-6xl font-bold">
+                {stats.totalSupply}
+              </div>
+              <div className="text-xs text-[var(--muted)] mt-1">
+                tokens etched
+              </div>
             </div>
-            <div className="text-5xl md:text-6xl font-bold">
-              {stats.totalSupply}
+            <div className="border-2 border-[var(--border)] p-6 -ml-[2px] -mt-[2px]">
+              <div className="text-xs uppercase tracking-wider mb-1">
+                Abstract
+              </div>
+              <div className="text-3xl md:text-4xl font-bold">
+                {stats.abstractSupply}
+              </div>
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              tokens etched
+            <div className="border-2 border-[var(--border)] p-6 -ml-[2px] -mt-[2px]">
+              <div className="text-xs uppercase tracking-wider mb-1">
+                Base
+              </div>
+              <div className="text-3xl md:text-4xl font-bold">
+                {stats.baseSupply}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ---- FAQ ---- */}
-      <section id="faq" className="border-b-2 border-black px-4 py-12 md:py-16">
+      <section id="faq" className="border-b-2 border-[var(--border)] px-4 py-12 md:py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
             FAQ
           </h2>
-          <div className="divide-y-2 divide-black border-2 border-black">
+          <div className="divide-y-2 divide-black border-2 border-[var(--border)]">
             {FAQ_ITEMS.map((item, i) => (
               <div key={i} className="p-5">
                 <h3 className="font-bold mb-2">{item.q}</h3>
@@ -448,7 +512,7 @@ export default async function Home() {
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <span className="font-bold text-lg">ETCH</span>
-            <span className="text-sm ml-2 text-gray-500">
+            <span className="text-sm ml-2 text-[var(--muted)]">
               by{" "}
               <a
                 href="https://ack-onchain.dev"
@@ -474,7 +538,15 @@ export default async function Home() {
               rel="noopener noreferrer"
               className="no-underline hover:underline"
             >
-              Contract
+              Abstract
+            </a>
+            <a
+              href="https://basescan.org/address/0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="no-underline hover:underline"
+            >
+              Base
             </a>
             <Link href="/etch/1" className="no-underline hover:underline">
               Explorer
