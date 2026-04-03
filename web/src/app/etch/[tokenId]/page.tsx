@@ -1,6 +1,8 @@
 import {
-  publicClient,
-  ETCH_ADDRESS,
+  publicClientAbstract,
+  publicClientBase,
+  ETCH_ADDRESS_ABSTRACT,
+  ETCH_ADDRESS_BASE,
   ETCH_ABI,
   TOKEN_TYPE_LABELS,
 } from "@/lib/contract";
@@ -8,33 +10,138 @@ import { EtchArt } from "@/components/etch-art";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import type { PublicClient } from "viem";
 
 export const revalidate = 30;
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ tokenId: string }>;
-}): Promise<Metadata> {
-  const { tokenId: tokenIdStr } = await params;
-  const tokenId = BigInt(tokenIdStr);
+type ChainConfig = {
+  key: "abstract" | "base";
+  name: "Abstract" | "Base";
+  explorerName: "Abscan" | "Basescan";
+  explorerUrl: string;
+  etchAddress: `0x${string}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: PublicClient<any, any>;
+};
 
+function getChainConfig(chain: string): ChainConfig {
+  if (chain === "base") {
+    return {
+      key: "base",
+      name: "Base",
+      explorerName: "Basescan",
+      explorerUrl: "https://basescan.org",
+      etchAddress: ETCH_ADDRESS_BASE,
+      client: publicClientBase,
+    };
+  }
+
+  return {
+    key: "abstract",
+    name: "Abstract",
+    explorerName: "Abscan",
+    explorerUrl: "https://abscan.org",
+    etchAddress: ETCH_ADDRESS_ABSTRACT,
+    client: publicClientAbstract,
+  };
+}
+
+function parseTokenUri(uri: string): {
+  description: string | null;
+  format: string;
+} {
+  if (!uri) return { description: null, format: "none" };
+
+  if (uri.startsWith("data:application/json;base64,")) {
+    try {
+      const json = JSON.parse(Buffer.from(uri.slice(29), "base64").toString());
+      return {
+        description: json.description || null,
+        format: "onchain (art + metadata)",
+      };
+    } catch {
+      return { description: null, format: "onchain (base64 JSON)" };
+    }
+  }
+
+  if (uri.startsWith("data:,")) {
+    try {
+      const json = JSON.parse(decodeURIComponent(uri.slice(6)));
+      return {
+        description: json.subject || json.description || null,
+        format: "onchain (plain JSON)",
+      };
+    } catch {
+      return { description: null, format: "onchain (data URI)" };
+    }
+  }
+
+  return { description: null, format: "external" };
+}
+
+async function getTokenData(tokenId: bigint, cfg: ChainConfig) {
   try {
-    const [uri, tokenType, soulbound] = await Promise.all([
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+    const [owner, uri, tokenType, soulbound] = await Promise.all([
+      cfg.client.readContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "ownerOf",
+        args: [tokenId],
+      }),
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "tokenURI",
         args: [tokenId],
       }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "tokenType",
         args: [tokenId],
       }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+      cfg.client.readContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "isSoulbound",
+        args: [tokenId],
+      }),
+    ]);
+
+    return { owner, uri, tokenType: Number(tokenType), soulbound };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ tokenId: string }>;
+  searchParams: Promise<{ chain?: string }>;
+}): Promise<Metadata> {
+  const { tokenId: tokenIdStr } = await params;
+  const { chain: chainParam } = await searchParams;
+  const cfg = getChainConfig(chainParam === "base" ? "base" : "abstract");
+  const tokenId = BigInt(tokenIdStr);
+
+  try {
+    const [uri, tokenType, soulbound] = await Promise.all([
+      cfg.client.readContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "tokenURI",
+        args: [tokenId],
+      }),
+      cfg.client.readContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "tokenType",
+        args: [tokenId],
+      }),
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "isSoulbound",
         args: [tokenId],
@@ -45,9 +152,8 @@ export async function generateMetadata({
     const typeName = TOKEN_TYPE_LABELS[type] || "Unknown";
     const { description } = parseTokenUri(uri as string);
     const title = `ETCH #${tokenIdStr} - ${typeName}${soulbound ? " (Soulbound)" : ""}`;
-    const desc =
-      description || `Onchain ${typeName} record on Abstract.`;
-    const artUrl = `https://etch.ack-onchain.dev/api/art/${tokenIdStr}`;
+    const desc = description || `Onchain ${typeName} record on ${cfg.name}.`;
+    const artUrl = `https://etch.ack-onchain.dev/api/art/${tokenIdStr}?chain=${cfg.key}`;
 
     return {
       title,
@@ -75,94 +181,23 @@ export async function generateMetadata({
   } catch {
     return {
       title: `ETCH #${tokenIdStr}`,
-      description: "Permanent onchain record on Abstract.",
+      description: `Permanent onchain record on ${cfg.name}.`,
     };
-  }
-}
-
-function truncateAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function parseTokenUri(uri: string): {
-  description: string | null;
-  format: string;
-} {
-  if (!uri) return { description: null, format: "none" };
-
-  // data:application/json;base64,... (full metadata with art)
-  if (uri.startsWith("data:application/json;base64,")) {
-    try {
-      const json = JSON.parse(
-        Buffer.from(uri.slice(29), "base64").toString()
-      );
-      return {
-        description: json.description || null,
-        format: "onchain (art + metadata)",
-      };
-    } catch {
-      return { description: null, format: "onchain (base64 JSON)" };
-    }
-  }
-
-  // data:,{...} (plain JSON, no art)
-  if (uri.startsWith("data:,")) {
-    try {
-      const json = JSON.parse(decodeURIComponent(uri.slice(6)));
-      return {
-        description: json.subject || json.description || null,
-        format: "onchain (plain JSON)",
-      };
-    } catch {
-      return { description: null, format: "onchain (data URI)" };
-    }
-  }
-
-  return { description: null, format: "external" };
-}
-
-async function getTokenData(tokenId: bigint) {
-  try {
-    const [owner, uri, tokenType, soulbound] = await Promise.all([
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
-        abi: ETCH_ABI,
-        functionName: "ownerOf",
-        args: [tokenId],
-      }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
-        abi: ETCH_ABI,
-        functionName: "tokenURI",
-        args: [tokenId],
-      }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
-        abi: ETCH_ABI,
-        functionName: "tokenType",
-        args: [tokenId],
-      }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
-        abi: ETCH_ABI,
-        functionName: "isSoulbound",
-        args: [tokenId],
-      }),
-    ]);
-    return { owner, uri, tokenType: Number(tokenType), soulbound };
-  } catch {
-    return null;
   }
 }
 
 export default async function TokenPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tokenId: string }>;
+  searchParams: Promise<{ chain?: string }>;
 }) {
   const { tokenId: tokenIdStr } = await params;
+  const { chain: chainParam } = await searchParams;
+  const cfg = getChainConfig(chainParam === "base" ? "base" : "abstract");
   const tokenId = BigInt(tokenIdStr);
-  const data = await getTokenData(tokenId);
+  const data = await getTokenData(tokenId, cfg);
 
   if (!data) {
     notFound();
@@ -172,7 +207,7 @@ export default async function TokenPage({
   const { description, format } = parseTokenUri(uriStr);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-lg mx-auto">
       <div>
         <Link href="/" className="text-sm">
           Back
@@ -181,73 +216,85 @@ export default async function TokenPage({
 
       <h1 className="text-4xl font-bold">ETCH #{tokenIdStr}</h1>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-shrink-0 self-center lg:self-start">
-          <EtchArt tokenId={Number(tokenIdStr)} tokenType={data.tokenType} />
+      <div className="flex gap-2">
+        <Link
+          href={`/etch/${tokenIdStr}?chain=abstract`}
+          className={`border-2 border-[var(--border)] px-3 py-1 text-xs uppercase tracking-wider no-underline transition-colors ${
+            cfg.key === "abstract"
+              ? "bg-[var(--foreground)] text-[var(--background)]"
+              : "hover:bg-[var(--foreground)] hover:text-[var(--background)]"
+          }`}
+        >
+          Abstract
+        </Link>
+        <Link
+          href={`/etch/${tokenIdStr}?chain=base`}
+          className={`border-2 border-[var(--border)] px-3 py-1 text-xs uppercase tracking-wider no-underline transition-colors ${
+            cfg.key === "base"
+              ? "bg-[var(--foreground)] text-[var(--background)]"
+              : "hover:bg-[var(--foreground)] hover:text-[var(--background)]"
+          }`}
+        >
+          Base
+        </Link>
+      </div>
+
+      <EtchArt tokenId={Number(tokenIdStr)} tokenType={data.tokenType} />
+
+      {description && (
+        <p className="text-sm break-words [overflow-wrap:anywhere]">{description}</p>
+      )}
+
+      <div className="border-2 border-[var(--border)] divide-y-2 divide-black">
+        <div className="p-4 flex justify-between">
+          <span className="font-bold uppercase text-sm">Type</span>
+          <span>{TOKEN_TYPE_LABELS[data.tokenType] ?? "Unknown"}</span>
         </div>
-
-        <div className="flex-grow space-y-4">
-          {description && (
-            <p className="text-lg break-words [overflow-wrap:anywhere]">{description}</p>
-          )}
-
-          <div className="border-2 border-black divide-y-2 divide-black">
-            <div className="p-4 flex justify-between">
-              <span className="font-bold uppercase text-sm">Type</span>
-              <span>{TOKEN_TYPE_LABELS[data.tokenType] ?? "Unknown"}</span>
-            </div>
-            <div className="p-4 flex justify-between">
-              <span className="font-bold uppercase text-sm">Soulbound</span>
-              <span>{data.soulbound ? "Yes" : "No"}</span>
-            </div>
-            <div className="p-4 flex justify-between items-center">
-              <span className="font-bold uppercase text-sm">Owner</span>
-              <Link href={`/address/${data.owner}`}>
-                <span className="md:hidden">
-                  {truncateAddress(data.owner as string)}
-                </span>
-                <span className="hidden md:inline">
-                  {data.owner as string}
-                </span>
-              </Link>
-            </div>
-            <div className="p-4 flex justify-between items-center">
-              <span className="font-bold uppercase text-sm">Storage</span>
-              <span className="text-sm">{format}</span>
-            </div>
-            <div className="p-4 flex justify-between items-center">
-              <span className="font-bold uppercase text-sm">Chain</span>
-              <span className="text-sm">Abstract</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <a
-              href={`https://abscan.org/token/${ETCH_ADDRESS}?a=${tokenIdStr}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border-2 border-black px-4 py-2 text-sm no-underline hover:bg-black hover:text-white transition-colors"
->
-              View on Abscan (Abstract)
-            </a>
-            <a
-              href={`/api/metadata/${tokenIdStr}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border-2 border-black px-4 py-2 text-sm no-underline hover:bg-black hover:text-white transition-colors"
-            >
-              Raw Metadata
-            </a>
-            <a
-              href={`/api/art/${tokenIdStr}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border-2 border-black px-4 py-2 text-sm no-underline hover:bg-black hover:text-white transition-colors"
-            >
-              View SVG
-            </a>
-          </div>
+        <div className="p-4 flex justify-between">
+          <span className="font-bold uppercase text-sm">Soulbound</span>
+          <span>{data.soulbound ? "Yes" : "No"}</span>
         </div>
+        <div className="p-4 flex justify-between items-center gap-4">
+          <span className="font-bold uppercase text-sm shrink-0">Owner</span>
+          <Link href={`/address/${data.owner}`} className="truncate text-sm">
+            {data.owner as string}
+          </Link>
+        </div>
+        <div className="p-4 flex justify-between items-center">
+          <span className="font-bold uppercase text-sm">Storage</span>
+          <span className="text-sm">{format}</span>
+        </div>
+        <div className="p-4 flex justify-between items-center">
+          <span className="font-bold uppercase text-sm">Chain</span>
+          <span className="text-sm">{cfg.name}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={`${cfg.explorerUrl}/token/${cfg.etchAddress}?a=${tokenIdStr}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="border-2 border-[var(--border)] px-4 py-2 text-sm no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
+        >
+          View on {cfg.explorerName} ({cfg.name})
+        </a>
+        <a
+          href={`/api/metadata/${tokenIdStr}?chain=${cfg.key}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="border-2 border-[var(--border)] px-4 py-2 text-sm no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
+        >
+          Raw Metadata
+        </a>
+        <a
+          href={`/api/art/${tokenIdStr}?chain=${cfg.key}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="border-2 border-[var(--border)] px-4 py-2 text-sm no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
+        >
+          View SVG
+        </a>
       </div>
     </div>
   );

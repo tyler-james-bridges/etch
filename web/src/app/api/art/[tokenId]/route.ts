@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publicClient, ETCH_ADDRESS, ETCH_ABI } from "@/lib/contract";
+import {
+  publicClientAbstract,
+  publicClientBase,
+  ETCH_ADDRESS_ABSTRACT,
+  ETCH_ADDRESS_BASE,
+  ETCH_ABI,
+} from "@/lib/contract";
 import { generateEtchSvg } from "@/lib/art-svg";
 
+function getChainConfig(chain: string) {
+  if (chain === "base") {
+    return {
+      client: publicClientBase,
+      etchAddress: ETCH_ADDRESS_BASE,
+    };
+  }
+
+  return {
+    client: publicClientAbstract,
+    etchAddress: ETCH_ADDRESS_ABSTRACT,
+  };
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ tokenId: string }> }
 ) {
   const { tokenId: tokenIdStr } = await params;
@@ -13,10 +33,13 @@ export async function GET(
     return new NextResponse("Invalid token ID", { status: 400 });
   }
 
+  const chain = request.nextUrl.searchParams.get("chain") === "base" ? "base" : "abstract";
+  const cfg = getChainConfig(chain);
+
   try {
     // Verify token exists and get its type
-    const tokenType = await publicClient.readContract({
-      address: ETCH_ADDRESS,
+    const tokenType = await cfg.client.readContract({
+      address: cfg.etchAddress,
       abi: ETCH_ABI,
       functionName: "tokenType",
       args: [BigInt(tokenId)],

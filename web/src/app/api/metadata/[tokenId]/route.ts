@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publicClient, ETCH_ADDRESS, ETCH_ABI, TOKEN_TYPE_LABELS } from "@/lib/contract";
+import {
+  publicClientAbstract,
+  publicClientBase,
+  ETCH_ADDRESS_ABSTRACT,
+  ETCH_ADDRESS_BASE,
+  ETCH_ABI,
+  TOKEN_TYPE_LABELS,
+} from "@/lib/contract";
 import { generateEtchMetadata } from "@/lib/art-svg";
 
+function getChainConfig(chain: string) {
+  if (chain === "base") {
+    return {
+      client: publicClientBase,
+      etchAddress: ETCH_ADDRESS_BASE,
+      chainName: "Base",
+    };
+  }
+
+  return {
+    client: publicClientAbstract,
+    etchAddress: ETCH_ADDRESS_ABSTRACT,
+    chainName: "Abstract",
+  };
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ tokenId: string }> }
 ) {
   const { tokenId: tokenIdStr } = await params;
@@ -13,28 +36,31 @@ export async function GET(
     return NextResponse.json({ error: "Invalid token ID" }, { status: 400 });
   }
 
+  const chain = request.nextUrl.searchParams.get("chain") === "base" ? "base" : "abstract";
+  const cfg = getChainConfig(chain);
+
   try {
     const [uri, tokenType, soulbound, owner] = await Promise.all([
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "tokenURI",
         args: [BigInt(tokenId)],
       }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "tokenType",
         args: [BigInt(tokenId)],
       }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "isSoulbound",
         args: [BigInt(tokenId)],
       }),
-      publicClient.readContract({
-        address: ETCH_ADDRESS,
+      cfg.client.readContract({
+        address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "ownerOf",
         args: [BigInt(tokenId)],
@@ -45,7 +71,7 @@ export async function GET(
     const typeName = TOKEN_TYPE_LABELS[type] || "Unknown";
 
     // Parse original URI for description
-    let description = `An onchain ${typeName} etched permanently on Abstract.`;
+    let description = `An onchain ${typeName} etched permanently on ${cfg.chainName}.`;
     try {
       const uriStr = uri as string;
       if (uriStr.startsWith("data:,")) {
