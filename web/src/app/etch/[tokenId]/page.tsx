@@ -108,17 +108,11 @@ async function resolveChainConfig(tokenId: bigint, chainParam?: string): Promise
 
 async function getTokenData(tokenId: bigint, cfg: ChainConfig) {
   try {
-    const [owner, uri, tokenType, soulbound] = await Promise.all([
+    const [owner, tokenType, soulbound] = await Promise.all([
       cfg.client.readContract({
         address: cfg.etchAddress,
         abi: ETCH_ABI,
         functionName: "ownerOf",
-        args: [tokenId],
-      }),
-      cfg.client.readContract({
-        address: cfg.etchAddress,
-        abi: ETCH_ABI,
-        functionName: "tokenURI",
         args: [tokenId],
       }),
       cfg.client.readContract({
@@ -134,6 +128,19 @@ async function getTokenData(tokenId: bigint, cfg: ChainConfig) {
         args: [tokenId],
       }),
     ]);
+
+    let uri = "";
+    try {
+      const uriResult = await cfg.client.readContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "tokenURI",
+        args: [tokenId],
+      });
+      uri = String(uriResult);
+    } catch {
+      // Keep empty URI if RPC chokes on very large tokenURI responses
+    }
 
     return { owner, uri, tokenType: Number(tokenType), soulbound };
   } catch {
