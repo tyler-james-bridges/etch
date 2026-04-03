@@ -40,13 +40,7 @@ export async function GET(
   const cfg = getChainConfig(chain);
 
   try {
-    const [uri, tokenType, soulbound, owner] = await Promise.all([
-      cfg.client.readContract({
-        address: cfg.etchAddress,
-        abi: ETCH_ABI,
-        functionName: "tokenURI",
-        args: [BigInt(tokenId)],
-      }),
+    const [tokenType, soulbound, owner] = await Promise.all([
       cfg.client.readContract({
         address: cfg.etchAddress,
         abi: ETCH_ABI,
@@ -70,16 +64,22 @@ export async function GET(
     const type = Number(tokenType);
     const typeName = TOKEN_TYPE_LABELS[type] || "Unknown";
 
-    // Parse original URI for description
+    // Parse original URI for description (best effort only, do not fail endpoint)
     let description = `An onchain ${typeName} etched permanently on ${cfg.chainName}.`;
     try {
+      const uri = await cfg.client.readContract({
+        address: cfg.etchAddress,
+        abi: ETCH_ABI,
+        functionName: "tokenURI",
+        args: [BigInt(tokenId)],
+      });
       const uriStr = uri as string;
       if (uriStr.startsWith("data:,")) {
         const parsed = JSON.parse(decodeURIComponent(uriStr.slice(6)));
         if (parsed.subject) description = parsed.subject;
       }
     } catch {
-      // Use default description
+      // Keep default description if tokenURI is unavailable or oversized at RPC layer
     }
 
     const metadata = generateEtchMetadata(
