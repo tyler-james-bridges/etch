@@ -93,7 +93,67 @@ type TokenInfo = {
   soulbound: boolean;
   owner: string;
   svg: string;
+  chain: "abstract" | "base";
 };
+
+async function getRecentTokensOnChain(
+  chain: "abstract" | "base",
+  total: number,
+  maxCount: number
+): Promise<TokenInfo[]> {
+  const client = chain === "base" ? publicClientBase : publicClientAbstract;
+  const etchAddress = chain === "base" ? ETCH_ADDRESS_BASE : ETCH_ADDRESS_ABSTRACT;
+
+  const count = Math.min(total, maxCount);
+  const tokens: TokenInfo[] = [];
+
+  for (let i = total - 1; i >= total - count && i >= 0; i--) {
+    try {
+      const tokenId = await client.readContract({
+        address: etchAddress,
+        abi: ETCH_ABI,
+        functionName: "tokenByIndex",
+        args: [BigInt(i)],
+      });
+
+      const [tokenType, soulbound, owner] = await Promise.all([
+        client.readContract({
+          address: etchAddress,
+          abi: ETCH_ABI,
+          functionName: "tokenType",
+          args: [tokenId as bigint],
+        }),
+        client.readContract({
+          address: etchAddress,
+          abi: ETCH_ABI,
+          functionName: "isSoulbound",
+          args: [tokenId as bigint],
+        }),
+        client.readContract({
+          address: etchAddress,
+          abi: ETCH_ABI,
+          functionName: "ownerOf",
+          args: [tokenId as bigint],
+        }),
+      ]);
+
+      const id = Number(tokenId);
+      const type = Number(tokenType);
+      tokens.push({
+        id,
+        tokenType: type,
+        soulbound: soulbound as boolean,
+        owner: owner as string,
+        svg: generateEtchSvg(id, type),
+        chain,
+      });
+    } catch {
+      // Skip tokens that fail to load
+    }
+  }
+
+  return tokens;
+}
 
 async function getStats() {
   const [abstractSupply, baseSupply] = await Promise.all([
@@ -113,60 +173,19 @@ async function getStats() {
   const baseTotal = Number(baseSupply);
   const combinedTotal = abstractTotal + baseTotal;
 
-  // Fetch recent tokens from Abstract (up to 8, newest first)
-  const count = Math.min(abstractTotal, 8);
-  const recentTokens: TokenInfo[] = [];
+  const [abstractRecent, baseRecent] = await Promise.all([
+    getRecentTokensOnChain("abstract", abstractTotal, 4),
+    getRecentTokensOnChain("base", baseTotal, 4),
+  ]);
 
-  for (let i = abstractTotal - 1; i >= abstractTotal - count && i >= 0; i--) {
-    try {
-      const tokenId = await publicClientAbstract.readContract({
-        address: ETCH_ADDRESS_ABSTRACT,
-        abi: ETCH_ABI,
-        functionName: "tokenByIndex",
-        args: [BigInt(i)],
-      });
-
-      const [tokenType, soulbound, owner] = await Promise.all([
-        publicClientAbstract.readContract({
-          address: ETCH_ADDRESS_ABSTRACT,
-          abi: ETCH_ABI,
-          functionName: "tokenType",
-          args: [tokenId as bigint],
-        }),
-        publicClientAbstract.readContract({
-          address: ETCH_ADDRESS_ABSTRACT,
-          abi: ETCH_ABI,
-          functionName: "isSoulbound",
-          args: [tokenId as bigint],
-        }),
-        publicClientAbstract.readContract({
-          address: ETCH_ADDRESS_ABSTRACT,
-          abi: ETCH_ABI,
-          functionName: "ownerOf",
-          args: [tokenId as bigint],
-        }),
-      ]);
-
-      const id = Number(tokenId);
-      const type = Number(tokenType);
-      recentTokens.push({
-        id,
-        tokenType: type,
-        soulbound: soulbound as boolean,
-        owner: owner as string,
-        svg: generateEtchSvg(id, type),
-      });
-    } catch {
-      // Skip tokens that fail to load
-    }
-  }
+  const recentTokens = [...abstractRecent, ...baseRecent].slice(0, 8);
 
   return {
     totalSupply: combinedTotal,
     abstractSupply: abstractTotal,
     baseSupply: baseTotal,
     recentTokens,
-    hasMore: abstractTotal > count,
+    hasMore: combinedTotal > recentTokens.length,
   };
 }
 
@@ -262,7 +281,7 @@ export default async function Home() {
             </div>
             {stats.recentTokens.length === 1 ? (
               <Link
-                href={`/etch/${stats.recentTokens[0].id}`}
+                href={`/etch/${stats.recentTokens[0].id}?chain=${stats.recentTokens[0].chain}`}
                 className="border-2 border-[var(--border)] no-underline hover:bg-[var(--surface)] transition-colors block max-w-sm mx-auto"
               >
                 <div
@@ -276,6 +295,9 @@ export default async function Home() {
                       {TOKEN_TYPE_LABELS[stats.recentTokens[0].tokenType] || "Unknown"}
                     </span>
                   </div>
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
+                    {stats.recentTokens[0].chain}
+                  </div>
                   {stats.recentTokens[0].soulbound && (
                     <span className="text-xs uppercase tracking-wider text-[var(--muted-light)]">
                       Soulbound
@@ -287,8 +309,8 @@ export default async function Home() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
                 {stats.recentTokens.map((token) => (
                   <Link
-                    key={token.id}
-                    href={`/etch/${token.id}`}
+                    key={`${token.chain}-${token.id}`}
+                    href={`/etch/${token.id}?chain=${token.chain}`}
                     className="border-2 border-[var(--border)] -mt-[2px] -ml-[2px] no-underline hover:bg-[var(--surface)] transition-colors group"
                   >
                     <div
@@ -302,6 +324,9 @@ export default async function Home() {
                           {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
                         </span>
                       </div>
+                      <span className="text-[10px] uppercase tracking-wider text-[var(--muted-light)] mr-2">
+                        {token.chain}
+                      </span>
                       {token.soulbound && (
                         <span className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
                           Soulbound
@@ -315,7 +340,7 @@ export default async function Home() {
             {stats.hasMore && (
               <div className="mt-6 text-center">
                 <Link
-                  href={`/etch/${stats.recentTokens[stats.recentTokens.length - 1]?.id ?? 0}`}
+                  href="/explore"
                   className="border-2 border-[var(--border)] px-6 py-2 text-sm font-bold uppercase tracking-wider no-underline hover:bg-[var(--foreground)] hover:text-[var(--background)] transition-colors"
                 >
                   View all {stats.totalSupply} etches
