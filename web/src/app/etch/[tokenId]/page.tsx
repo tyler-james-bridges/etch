@@ -223,8 +223,20 @@ export default async function TokenPage({
   const { tokenId: tokenIdStr } = await params;
   const { chain: chainParam } = await searchParams;
   const tokenId = BigInt(tokenIdStr);
-  const cfg = await resolveChainConfig(tokenId, chainParam);
-  const data = await getTokenData(tokenId, cfg);
+
+  let cfg = await resolveChainConfig(tokenId, chainParam);
+  let data = await getTokenData(tokenId, cfg);
+
+  // Safety fallback: if selected/default chain read fails transiently,
+  // try the other chain before returning 404.
+  if (!data) {
+    const altCfg = getChainConfig(cfg.key === "abstract" ? "base" : "abstract");
+    const altData = await getTokenData(tokenId, altCfg);
+    if (altData) {
+      cfg = altCfg;
+      data = altData;
+    }
+  }
 
   if (!data) {
     notFound();
