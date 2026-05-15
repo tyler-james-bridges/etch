@@ -79,13 +79,53 @@ async function getTokens(chain: "abstract" | "base", limit = 30): Promise<TokenC
   }
 }
 
+function TokenGrid({ tokens }: { tokens: TokenCard[] }) {
+  if (tokens.length === 0) {
+    return (
+      <div className="text-sm text-[var(--muted)] py-8 text-center border-2 border-[var(--border)]">
+        No tokens found on this chain
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {tokens.map((token) => (
+        <Link
+          key={`${token.chain}-${token.id}`}
+          href={`/etch/${token.id}?chain=${token.chain}`}
+          className="border-2 border-[var(--border)] no-underline hover:bg-[var(--surface)] transition-colors"
+        >
+          <div
+            className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
+            dangerouslySetInnerHTML={{ __html: token.svg }}
+          />
+          <div className="p-3 border-t-2 border-[var(--border)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">#{token.id}</span>
+              <span className="text-xs text-[var(--muted)]">
+                {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
+              </span>
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
+              {token.chain}
+            </div>
+            {token.soulbound && (
+              <span className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
+                Soulbound
+              </span>
+            )}
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default async function ExplorePage() {
   const [abstractTokens, baseTokens] = await Promise.all([
     getTokens("abstract", 30),
     getTokens("base", 30),
   ]);
-
-  const tokens = [...abstractTokens, ...baseTokens];
 
   return (
     <div className="min-h-screen px-4 py-10 max-w-5xl mx-auto">
@@ -96,40 +136,21 @@ export default async function ExplorePage() {
         </Link>
       </div>
 
-      <div className="text-sm text-[var(--muted)] mb-4">
-        Showing latest {tokens.length} across Abstract + Base
-      </div>
+      <section className="mb-10">
+        <h2 className="text-lg font-bold mb-1">Abstract</h2>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          {abstractTokens.length} token{abstractTokens.length !== 1 ? "s" : ""}
+        </p>
+        <TokenGrid tokens={abstractTokens} />
+      </section>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
-        {tokens.map((token) => (
-          <Link
-            key={`${token.chain}-${token.id}`}
-            href={`/etch/${token.id}?chain=${token.chain}`}
-            className="border-2 border-[var(--border)] -mt-[2px] -ml-[2px] no-underline hover:bg-[var(--surface)] transition-colors"
-          >
-            <div
-              className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"
-              dangerouslySetInnerHTML={{ __html: token.svg }}
-            />
-            <div className="p-3 border-t-2 border-[var(--border)]">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold">#{token.id}</span>
-                <span className="text-xs text-[var(--muted)]">
-                  {TOKEN_TYPE_LABELS[token.tokenType] || "Unknown"}
-                </span>
-              </div>
-              <div className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
-                {token.chain}
-              </div>
-              {token.soulbound && (
-                <span className="text-[10px] uppercase tracking-wider text-[var(--muted-light)]">
-                  Soulbound
-                </span>
-              )}
-            </div>
-          </Link>
-        ))}
-      </div>
+      <section>
+        <h2 className="text-lg font-bold mb-1">Base</h2>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          {baseTokens.length} token{baseTokens.length !== 1 ? "s" : ""}
+        </p>
+        <TokenGrid tokens={baseTokens} />
+      </section>
     </div>
   );
 }

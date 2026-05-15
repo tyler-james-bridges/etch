@@ -178,7 +178,13 @@ async function getStats() {
     getRecentTokensOnChain("base", baseTotal, 4),
   ]);
 
-  const recentTokens = [...abstractRecent, ...baseRecent].slice(0, 8);
+  // Interleave so both chains are visible without scrolling
+  const recentTokens: TokenInfo[] = [];
+  const maxLen = Math.max(abstractRecent.length, baseRecent.length);
+  for (let i = 0; i < maxLen && recentTokens.length < 8; i++) {
+    if (i < abstractRecent.length) recentTokens.push(abstractRecent[i]);
+    if (i < baseRecent.length && recentTokens.length < 8) recentTokens.push(baseRecent[i]);
+  }
 
   return {
     totalSupply: combinedTotal,
@@ -306,12 +312,12 @@ export default async function Home() {
                 </div>
               </Link>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {stats.recentTokens.map((token) => (
                   <Link
                     key={`${token.chain}-${token.id}`}
                     href={`/etch/${token.id}?chain=${token.chain}`}
-                    className="border-2 border-[var(--border)] -mt-[2px] -ml-[2px] no-underline hover:bg-[var(--surface)] transition-colors group"
+                    className="border-2 border-[var(--border)] no-underline hover:bg-[var(--surface)] transition-colors group"
                   >
                     <div
                       className="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block"

@@ -3,6 +3,21 @@
 :root {
   --foreground: #000000;
   --background: #ffffff;
+  --surface: #f5f5f5;
+  --border: #000000;
+  --muted: #666666;
+  --muted-light: #999999;
+  color-scheme: light;
+}
+
+.dark {
+  --foreground: #ffffff;
+  --background: #000000;
+  --surface: #161616;
+  --border: #ffffff;
+  --muted: #a0a0a0;
+  --muted-light: #707070;
+  color-scheme: dark;
 }
 
 body {
