@@ -12,6 +12,9 @@ contracts/lib/
 node_modules/
 .next/
 
+# Vercel
+.vercel/
+
 # Local research/docs (do not commit)
 web/docs/
 
