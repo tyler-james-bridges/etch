@@ -46,13 +46,14 @@ Add ETCH to any MCP-compatible agent (Claude Desktop, Cursor, Windsurf, OpenClaw
 }
 ```
 
-Three tools:
+Four tools, each with an optional `chain` parameter (`abstract` or `base`, default `abstract`):
 
-- **etch** -- Mint a permanent onchain record with generative art
+- **etch** -- Mint a permanent onchain record with generative art. Pass `register: true` to also register as an ERC-8004 agent in the same call.
 - **etch_check** -- Query records by address or token ID
 - **etch_resolve** -- Resolve ERC-8004 agent identity
+- **etch_register** -- Register the configured wallet as an ERC-8004 agent (idempotent)
 
-`ETCH_PRIVATE_KEY` is required for minting. Read-only tools work without it.
+`ETCH_PRIVATE_KEY` is required for minting and registering. Read-only tools work without it. Override RPC endpoints with `ETCH_RPC_URL_ABSTRACT` and `ETCH_RPC_URL_BASE`.
 
 ## For Humans (Web App)
 
@@ -158,7 +159,7 @@ Environment variables for the web app:
 ```bash
 cd packages/etch-mcp
 npm install
-node test.js            # 64 tests
+node test.js            # 99 tests, covers both chains
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node server.js
 ```
 

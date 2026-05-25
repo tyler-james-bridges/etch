@@ -2,6 +2,9 @@
 
 import {
   TOOL_DEFINITIONS,
+  CHAINS,
+  SUPPORTED_CHAINS,
+  resolveChain,
   tokenTypeToU8,
   tokenTypeToString,
   handleMessage,
@@ -35,7 +38,7 @@ function assertEqual(actual, expected, msg) {
 process.stderr.write("\n--- Tool Definitions ---\n");
 
 assert(Array.isArray(TOOL_DEFINITIONS), "tool definitions is an array");
-assertEqual(TOOL_DEFINITIONS.length, 3, "3 tools defined");
+assertEqual(TOOL_DEFINITIONS.length, 4, "4 tools defined");
 
 for (const tool of TOOL_DEFINITIONS) {
   assert(typeof tool.name === "string", `tool "${tool.name}" has name`);
@@ -64,6 +67,82 @@ assert(resolveTool !== undefined, "etch_resolve tool exists");
 assert(
   resolveTool.inputSchema.required.includes("address"),
   "etch_resolve requires 'address'"
+);
+
+// etch_register tool specifics
+const registerTool = TOOL_DEFINITIONS.find((t) => t.name === "etch_register");
+assert(registerTool !== undefined, "etch_register tool exists");
+assert(
+  typeof registerTool.inputSchema.properties.chain === "object",
+  "etch_register accepts chain"
+);
+assert(
+  typeof registerTool.inputSchema.properties.agentUri === "object",
+  "etch_register accepts agentUri"
+);
+
+// chain param is present on all tools
+for (const tool of TOOL_DEFINITIONS) {
+  assert(
+    typeof tool.inputSchema.properties.chain === "object",
+    `tool "${tool.name}" accepts chain param`
+  );
+  assert(
+    Array.isArray(tool.inputSchema.properties.chain.enum) &&
+      tool.inputSchema.properties.chain.enum.includes("abstract") &&
+      tool.inputSchema.properties.chain.enum.includes("base"),
+    `tool "${tool.name}" chain enum includes abstract and base`
+  );
+}
+
+// etch tool accepts register flag
+assert(
+  typeof etchTool.inputSchema.properties.register === "object",
+  "etch accepts register flag"
+);
+
+// -- Chain Resolution --
+
+process.stderr.write("\n--- Chain Resolution ---\n");
+
+assertEqual(SUPPORTED_CHAINS.length, 2, "2 supported chains");
+assert(SUPPORTED_CHAINS.includes("abstract"), "abstract is supported");
+assert(SUPPORTED_CHAINS.includes("base"), "base is supported");
+
+assertEqual(resolveChain("abstract").key, "abstract", "resolve 'abstract'");
+assertEqual(resolveChain("base").key, "base", "resolve 'base'");
+assertEqual(resolveChain("Abstract").key, "abstract", "resolve case-insensitive");
+assertEqual(resolveChain(undefined).key, "abstract", "defaults to abstract");
+assertEqual(resolveChain(null).key, "abstract", "null defaults to abstract");
+
+let unsupportedThrew = false;
+try {
+  resolveChain("polygon");
+} catch (e) {
+  unsupportedThrew = true;
+  assert(e.message.includes("Unsupported chain"), "unsupported chain error message");
+}
+assert(unsupportedThrew, "resolveChain throws for unsupported chain");
+
+assertEqual(
+  CHAINS.abstract.etchFactory,
+  "0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C",
+  "abstract etch factory address"
+);
+assertEqual(
+  CHAINS.base.etchFactory,
+  "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459",
+  "base etch factory address"
+);
+assertEqual(
+  CHAINS.abstract.identityRegistry,
+  "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+  "abstract identity registry address"
+);
+assertEqual(
+  CHAINS.base.identityRegistry,
+  "0x6A650549b4F0088e815e110aB169E5D9d313d0b6",
+  "base identity registry address"
 );
 
 // -- Token type mapping --
@@ -131,11 +210,12 @@ const listResp = JSON.parse(
     JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" })
   )
 );
-assertEqual(listResp.result.tools.length, 3, "tools/list returns 3 tools");
+assertEqual(listResp.result.tools.length, 4, "tools/list returns 4 tools");
 const toolNames = listResp.result.tools.map((t) => t.name);
 assert(toolNames.includes("etch"), "tools/list includes etch");
 assert(toolNames.includes("etch_check"), "tools/list includes etch_check");
 assert(toolNames.includes("etch_resolve"), "tools/list includes etch_resolve");
+assert(toolNames.includes("etch_register"), "tools/list includes etch_register");
 
 // -- MCP Protocol: notifications/initialized returns null --
 
@@ -284,6 +364,51 @@ assert(noKey.result.isError === true, "etch without private key returns isError"
 assert(
   noKey.result.content[0].text.includes("ETCH_PRIVATE_KEY"),
   "error mentions ETCH_PRIVATE_KEY"
+);
+
+// -- etch_register: no private key --
+
+const registerNoKey = JSON.parse(
+  await handleMessage(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      id: 16,
+      method: "tools/call",
+      params: { name: "etch_register", arguments: { chain: "base" } },
+    })
+  )
+);
+assert(
+  registerNoKey.result.isError === true,
+  "etch_register without private key returns isError"
+);
+assert(
+  registerNoKey.result.content[0].text.includes("ETCH_PRIVATE_KEY"),
+  "etch_register error mentions ETCH_PRIVATE_KEY"
+);
+
+// -- Invalid chain --
+
+const badChain = JSON.parse(
+  await handleMessage(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      id: 17,
+      method: "tools/call",
+      params: {
+        name: "etch_check",
+        arguments: {
+          address: "0x1234567890abcdef1234567890abcdef12345678",
+          chain: "polygon",
+        },
+      },
+    })
+  )
+);
+assert(badChain.result.isError === true, "unsupported chain returns isError");
+assert(
+  badChain.result.content[0].text.includes("Unsupported chain"),
+  "unsupported chain error message"
 );
 
 // -- Summary --

@@ -1,7 +1,7 @@
 {
   "name": "etch-mcp",
-  "version": "0.1.3",
-  "description": "MCP server for ETCH onchain records on Abstract",
+  "version": "0.2.0",
+  "description": "MCP server for ETCH onchain records on Abstract and Base, with ERC-8004 agent registration",
   "type": "module",
   "bin": {
     "etch-mcp": "./server.js"
@@ -23,6 +23,8 @@
     "mcp",
     "etch",
     "abstract",
+    "base",
+    "erc-8004",
     "nft",
     "erc721",
     "onchain",
