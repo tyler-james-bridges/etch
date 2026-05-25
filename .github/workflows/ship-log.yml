@@ -20,28 +20,37 @@ jobs:
       - name: Post to shipped-log
         env:
           WEBHOOK_URL: ${{ secrets.SHIPPED_LOG_WEBHOOK }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          EVENT_NAME: ${{ github.event_name }}
+          OWNER_LOGIN: ${{ github.event.sender.login }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
         run: |
+          set -euo pipefail
           DATE=$(date -u +%Y-%m-%d)
-          REPO="${{ github.event.repository.name }}"
 
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TITLE="Release ${{ github.event.release.tag_name }}"
-            URL="${{ github.event.release.html_url }}"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            TITLE="PR #${{ github.event.pull_request.number }} merged: ${{ github.event.pull_request.title }}"
-            URL="${{ github.event.pull_request.html_url }}"
+          if [ "$EVENT_NAME" = "release" ]; then
+            TITLE="Release $RELEASE_TAG"
+            URL="$RELEASE_URL"
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            TITLE="PR #${PR_NUMBER} merged: ${PR_TITLE}"
+            URL="$PR_URL"
           else
-            # Push to main - use commit info
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            TITLE="pushed: ${{ github.event.head_commit.message }}"
-            # Truncate long commit messages
-            TITLE=$(echo "$TITLE" | head -1 | cut -c1-120)
-            URL="${{ github.event.head_commit.url }}"
+            # Push to main - first line of commit message, truncated
+            TITLE="pushed: $(printf '%s' "$COMMIT_MESSAGE" | head -1 | cut -c1-120)"
+            URL="$COMMIT_URL"
           fi
 
-          OWNER="${{ github.event.sender.login }}"
-          CONTENT="${DATE} | ${REPO} | ${TITLE} | ${URL} | ${OWNER}"
+          CONTENT="${DATE} | ${REPO_NAME} | ${TITLE} | ${URL} | ${OWNER_LOGIN}"
 
-          curl -s -H "Content-Type: application/json" \
-            -d "{\"content\": \"${CONTENT}\"}" \
+          # JSON-encode CONTENT safely via jq to handle quotes, backslashes, etc.
+          PAYLOAD=$(jq -n --arg c "$CONTENT" '{content: $c}')
+
+          curl -sS -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
             "$WEBHOOK_URL"
