@@ -141,7 +141,7 @@ assertEqual(
 );
 assertEqual(
   CHAINS.base.identityRegistry,
-  "0x6A650549b4F0088e815e110aB169E5D9d313d0b6",
+  "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
   "base identity registry address"
 );
 

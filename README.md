@@ -105,7 +105,7 @@ Web App (Next.js)     MCP Server (Node.js)
 
 **ERC-8004 Registry (Abstract):** [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://abscan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432#code)
 
-**ERC-8004 Registry (Base):** [`0x6A650549b4F0088e815e110aB169E5D9d313d0b6`](https://basescan.org/address/0x6A650549b4F0088e815e110aB169E5D9d313d0b6#code)
+**ERC-8004 Registry (Base):** [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432#code)
 
 - ERC-721 with ERC721Enumerable
 - 5 token types with optional soulbound enforcement

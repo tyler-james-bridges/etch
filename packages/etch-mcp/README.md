@@ -103,7 +103,7 @@ Registers the configured wallet (the one backing `ETCH_PRIVATE_KEY`) as an ERC-8
 
 **Base (chain ID 8453)**
 - ETCH: [`0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459`](https://basescan.org/address/0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459)
-- ERC-8004 Registry: [`0x6A650549b4F0088e815e110aB169E5D9d313d0b6`](https://basescan.org/address/0x6A650549b4F0088e815e110aB169E5D9d313d0b6)
+- ERC-8004 Registry: [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432)
 
 Both contracts: ERC-721 with ERC721Enumerable, verified on the respective explorer.
 

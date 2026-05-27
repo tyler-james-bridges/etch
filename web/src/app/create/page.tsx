@@ -64,6 +64,11 @@ const OPENSEA_CHAIN_BY_CHAIN = {
   base: "base",
 } as const;
 
+const SCAN_8004_CHAIN_BY_CHAIN = {
+  abstract: "abstract",
+  base: "base",
+} as const;
+
 const APP_BASE_URL = (
   process.env.NEXT_PUBLIC_APP_URL || "https://etch.ack-onchain.dev"
 ).replace(/\/$/, "");
@@ -303,6 +308,7 @@ export default function CreatePage() {
     const etchAddress = ETCH_ADDRESS_BY_CHAIN[result.chain];
     const registryAddress = REGISTRY_ADDRESS_BY_CHAIN[result.chain];
     const openseaChain = OPENSEA_CHAIN_BY_CHAIN[result.chain];
+    const scan8004Chain = SCAN_8004_CHAIN_BY_CHAIN[result.chain];
     const etchUrl = `${APP_BASE_URL}/etch/${result.tokenId}?chain=${result.chain}`;
     const agentProfileUrl = `${APP_BASE_URL}/api/agent/${result.recipient}?chain=${result.chain}`;
     const openseaUrl = `https://opensea.io/assets/${openseaChain}/${etchAddress}/${result.tokenId}`;
@@ -375,7 +381,7 @@ export default function CreatePage() {
               </a>
               {result.agentId && (
                 <a
-                  href={`https://8004scan.com/agent/${result.agentId}`}
+                  href={`https://8004scan.io/agents/${scan8004Chain}/${result.agentId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block underline break-all"

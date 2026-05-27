@@ -28,7 +28,7 @@ const CHAINS = {
   base: {
     chain: baseMainnet,
     etchFactory: "0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459",
-    identityRegistry: "0x6A650549b4F0088e815e110aB169E5D9d313d0b6",
+    identityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     rpcUrl: process.env.ETCH_RPC_URL_BASE || "https://mainnet.base.org",
     explorer: "https://basescan.org",
     openseaSlug: "base",
@@ -66,7 +66,7 @@ const etchFactoryAbi = parseAbi([
 const identityRegistryAbi = parseAbi([
   "function register(string agentURI) returns (uint256)",
   "function agentOf(address agent) view returns (uint256)",
-  "function agentUri(uint256 tokenId) view returns (string)",
+  "function tokenURI(uint256 tokenId) view returns (string)",
   "function ownerOf(uint256 tokenId) view returns (address)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
 ]);
@@ -521,7 +521,7 @@ async function toolEtchResolve(args) {
   const uri = await publicClient.readContract({
     address: chainCfg.identityRegistry,
     abi: identityRegistryAbi,
-    functionName: "agentUri",
+    functionName: "tokenURI",
     args: [tokenId],
   });
 
