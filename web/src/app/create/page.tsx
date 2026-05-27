@@ -64,6 +64,10 @@ const OPENSEA_CHAIN_BY_CHAIN = {
   base: "base",
 } as const;
 
+const APP_BASE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL || "https://etch.ack-onchain.dev"
+).replace(/\/$/, "");
+
 function hashCode(str: string): number {
   let h = 5381;
   for (let i = 0; i < str.length; i++) {
@@ -86,6 +90,7 @@ interface CreateResult {
   tokenId: number;
   mintTxHash: string;
   chain: "abstract" | "base";
+  recipient: `0x${string}`;
   registerTxHash?: string;
   agentId?: string;
 }
@@ -206,6 +211,7 @@ export default function CreatePage() {
         tokenId: data.tokenId,
         mintTxHash: data.txHash,
         chain: (data.chain || mintChain) as "abstract" | "base",
+        recipient: address,
       };
       setResult(mintResult);
 
@@ -241,7 +247,7 @@ export default function CreatePage() {
 
       // Step 3: Prompt user to sign register() tx
       setStep("sign-register");
-      const agentURI = `https://etch.ack-onchain.dev/api/agent/${address}?chain=${mintChain}`;
+      const agentURI = `${APP_BASE_URL}/api/agent/${address}?chain=${mintChain}`;
 
       writeContract(
         {
@@ -276,6 +282,8 @@ export default function CreatePage() {
     tokenType,
     soulbound,
     register8004,
+    mintChain,
+    registryConfigured,
     chainId,
     switchChain,
     writeContract,
@@ -295,6 +303,9 @@ export default function CreatePage() {
     const etchAddress = ETCH_ADDRESS_BY_CHAIN[result.chain];
     const registryAddress = REGISTRY_ADDRESS_BY_CHAIN[result.chain];
     const openseaChain = OPENSEA_CHAIN_BY_CHAIN[result.chain];
+    const etchUrl = `${APP_BASE_URL}/etch/${result.tokenId}?chain=${result.chain}`;
+    const agentProfileUrl = `${APP_BASE_URL}/api/agent/${result.recipient}?chain=${result.chain}`;
+    const openseaUrl = `https://opensea.io/assets/${openseaChain}/${etchAddress}/${result.tokenId}`;
     return (
       <div className="max-w-xl mx-auto py-12 space-y-6">
         <div className="text-center">
@@ -314,12 +325,12 @@ export default function CreatePage() {
           </p>
           <div className="space-y-2 text-sm">
             <a
-              href={`https://etch.ack-onchain.dev/etch/${result.tokenId}`}
+              href={etchUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="block underline break-all"
             >
-              etch.ack-onchain.dev/etch/{result.tokenId}
+              {etchUrl.replace(/^https?:\/\//, "")}
             </a>
             <a
               href={`${explorerBase}/token/${etchAddress}?a=${result.tokenId}`}
@@ -338,7 +349,7 @@ export default function CreatePage() {
               Explorer Tx (mint)
             </a>
             <a
-              href={`https://opensea.io/item/${openseaChain}/${etchAddress}/${result.tokenId}`}
+              href={openseaUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="block underline break-all"
@@ -355,7 +366,7 @@ export default function CreatePage() {
             </p>
             <div className="space-y-2 text-sm">
               <a
-                href={`https://etch.ack-onchain.dev/api/agent/${address}?chain=${result.chain}`}
+                href={agentProfileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block underline break-all"

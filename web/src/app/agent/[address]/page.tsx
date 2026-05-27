@@ -322,7 +322,7 @@ export async function generateMetadata({
 
   const title = `${data.name} - ETCH Agent Profile`;
   const desc = data.description;
-  const artUrl = `https://etch.ack-onchain.dev/api/art/${data.identityTokenId}`;
+  const artUrl = `https://etch.ack-onchain.dev/api/art/${data.identityTokenId}?chain=${chainKey}`;
 
   return {
     title,
@@ -467,7 +467,7 @@ export default async function AgentProfilePage({
           <div className="p-4 flex justify-between items-center">
             <span className="font-bold uppercase text-sm">Identity Token</span>
             <Link
-              href={`/etch/${data.identityTokenId}`}
+              href={`/etch/${data.identityTokenId}?chain=${chainKey}`}
               className="text-sm"
             >
               #{data.identityTokenId}

@@ -171,7 +171,7 @@ export async function GET(
       type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
       name: tokenName,
       description: tokenDescription,
-      image: `https://etch.ack-onchain.dev/api/art/${identityTokenId}`,
+      image: `https://etch.ack-onchain.dev/api/art/${identityTokenId}?chain=${targetChain}`,
       services: [],
       x402Support: false,
       active: true,
