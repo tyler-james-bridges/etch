@@ -128,8 +128,14 @@ export default function CreatePage() {
     reset: resetWriteContract,
   } = useWriteContract();
 
-  const { data: registerReceipt } = useWaitForTransactionReceipt({
+  const registerChainId = result?.chain === "base" ? base.id : abstract.id;
+
+  const { data: registerReceipt, error: registerReceiptError } = useWaitForTransactionReceipt({
     hash: registerTxHash,
+    chainId: registerChainId,
+    query: {
+      enabled: step === "confirming-register" && !!registerTxHash,
+    },
   });
 
   const previewSvg = useMemo(() => {
@@ -166,22 +172,34 @@ export default function CreatePage() {
         // agentId extraction is best-effort
       }
 
-      setResult({
-        ...currentResult,
-        registerTxHash: receipt.transactionHash,
-        agentId,
-      });
+      setResult(
+        receipt.status === "success"
+          ? {
+              ...currentResult,
+              registerTxHash: receipt.transactionHash,
+              agentId,
+            }
+          : currentResult
+      );
       setStep("success");
     },
     []
   );
 
   // Watch for register receipt changes
-  useMemo(() => {
+  useEffect(() => {
     if (registerReceipt && step === "confirming-register" && result) {
       handleRegisterConfirmed(registerReceipt, result);
     }
   }, [registerReceipt, step, result, handleRegisterConfirmed]);
+
+  useEffect(() => {
+    if (registerReceiptError && step === "confirming-register" && result) {
+      console.error("Register receipt error:", registerReceiptError.message);
+      setResult(result);
+      setStep("success");
+    }
+  }, [registerReceiptError, step, result]);
 
   const handleCreate = useCallback(async () => {
     if (!address || !name.trim()) return;
