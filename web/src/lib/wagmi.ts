@@ -8,6 +8,7 @@ import {
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { abstract, base } from "wagmi/chains";
+import { BASE_DATA_SUFFIX } from "@/lib/builder-code";
 
 const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "00000000000000000000000000000000";
 
@@ -31,6 +32,7 @@ const connectors = connectorsForWallets(
 export const config = createConfig({
   connectors,
   chains: [abstract, base],
+  dataSuffix: BASE_DATA_SUFFIX,
   transports: {
     [abstract.id]: http("https://api.mainnet.abs.xyz"),
     [base.id]: http("https://mainnet.base.org"),
