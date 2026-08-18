@@ -11,6 +11,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { abstract, base } from 'viem/chains';
 import { ETCH_ABI } from '@/lib/contract';
 import { generateEtchMetadata } from '@/lib/art-svg';
+import { BASE_DATA_SUFFIX } from '@/lib/builder-code';
 
 const DEFAULT_ABSTRACT_ETCH = '0x1C6B7c00B4eCBFc01e3E8f46C2B9Bda4831E6e2C' as const;
 const DEFAULT_BASE_ETCH = '0x9c5758Eb5DC0deeDD77F7B2f78C96d45a48B4459' as const;
@@ -83,6 +84,7 @@ export async function mintNotarizedToken(
     account,
     chain: cfg.chain,
     transport: http(cfg.rpcUrl),
+    dataSuffix: targetChain === 'base' ? BASE_DATA_SUFFIX : undefined,
   });
 
   const tokenType = NOTARIZE_TYPE_MAP[input.type || 'receipt'];

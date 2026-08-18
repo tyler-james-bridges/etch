@@ -1,8 +1,14 @@
 import { withX402, x402ResourceServer } from '@x402/next';
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
+import {
+  BUILDER_CODE,
+  builderCodeResourceServerExtension,
+  declareBuilderCodeExtension,
+} from '@x402/extensions/builder-code';
 import type { Network } from '@x402/core/types';
 import { NextRequest, NextResponse } from 'next/server';
+import { BASE_BUILDER_CODE } from '@/lib/builder-code';
 
 export const ABSTRACT_NETWORK: Network = 'eip155:2741';
 export const BASE_NETWORK: Network = 'eip155:8453';
@@ -62,7 +68,9 @@ function getServerForChain(chain: 'abstract' | 'base'): x402ResourceServer {
     if (!_baseServer) {
       _baseServer = new x402ResourceServer(
         new HTTPFacilitatorClient({ url: BASE_FACILITATOR_URL })
-      ).register(BASE_NETWORK, makeScheme());
+      )
+        .register(BASE_NETWORK, makeScheme())
+        .registerExtension(builderCodeResourceServerExtension);
     }
     return _baseServer;
   }
@@ -96,7 +104,18 @@ export function withPaymentForChain<T = unknown>(
       ],
       description,
       mimeType: 'application/json',
-      ...(extensions ? { extensions } : {}),
+      ...(extensions || chain === 'base'
+        ? {
+            extensions: {
+              ...(extensions ?? {}),
+              ...(chain === 'base'
+                ? {
+                    [BUILDER_CODE]: declareBuilderCodeExtension(BASE_BUILDER_CODE),
+                  }
+                : {}),
+            },
+          }
+        : {}),
     },
     getServerForChain(chain)
   );

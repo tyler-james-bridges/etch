@@ -12,6 +12,7 @@ import {
   ETCH_NOTARIZE_METADATA_URI,
   getEtchNotarizeManifest,
 } from '../src/lib/tool-manifest';
+import { BASE_DATA_SUFFIX } from '../src/lib/builder-code';
 
 type ToolRegistryConfig = ConstructorParameters<typeof ToolRegistryClient>[0];
 
@@ -80,6 +81,7 @@ const walletClient = createWalletClient({
   account,
   chain,
   transport: http(process.env.RPC_URL),
+  dataSuffix: chain.id === base.id ? BASE_DATA_SUFFIX : undefined,
 });
 
 const registry = new ToolRegistryClient({

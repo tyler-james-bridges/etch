@@ -10,6 +10,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { abstract as abstractMainnet, base as baseMainnet } from "viem/chains";
+import { BASE_DATA_SUFFIX } from "./builder-code.js";
 
 // -- Chain Configuration --
 
@@ -100,6 +101,7 @@ function getWalletClient(chainCfg) {
     account,
     chain: chainCfg.chain,
     transport: http(chainCfg.rpcUrl),
+    dataSuffix: chainCfg.key === "base" ? BASE_DATA_SUFFIX : undefined,
   });
 }
 

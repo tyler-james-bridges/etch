@@ -11,7 +11,8 @@
     "test": "node test.js"
   },
   "dependencies": {
-    "viem": "^2.31.3"
+    "ox": "^0.14.34",
+    "viem": "^2.55.18"
   },
   "author": "ACK Protocol",
   "license": "MIT",

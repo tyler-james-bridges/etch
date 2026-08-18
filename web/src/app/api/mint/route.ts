@@ -11,6 +11,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { abstract, base } from "viem/chains";
 import { ETCH_ABI } from "@/lib/contract";
 import { generateEtchMetadata } from "@/lib/art-svg";
+import { BASE_DATA_SUFFIX } from "@/lib/builder-code";
 
 // Abstract (zkSync) has strict per-tx storage limits. Data URIs above this
 // byte threshold will exceed the "Storage invocations limit" when written
@@ -142,6 +143,7 @@ export async function POST(request: NextRequest) {
       account,
       chain: cfg.chain,
       transport: http(cfg.rpcUrl),
+      dataSuffix: targetChain === "base" ? BASE_DATA_SUFFIX : undefined,
     });
 
     const typeLabels = ["Identity", "Attestation", "Credential", "Receipt", "Pass"];
